@@ -1,0 +1,20 @@
+{
+  "name": "careerlink",
+  "version": "1.0.0",
+  "description": "CareerLink — Full-Stack Professional Networking & Recruitment Platform. Connect. Grow. Get Hired.",
+  "main": "server/src/server.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "seed": "cd server && npm run seed",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": ["prolink", "linkedin-clone", "networking", "recruitment", "fullstack"],
+  "author": "",
+  "license": "ISC"
+}
