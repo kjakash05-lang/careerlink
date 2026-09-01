@@ -122,32 +122,37 @@ const ProfilePage = () => {
   const [selectedPresetUrl, setSelectedPresetUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const avatarInputRef = useRef(null);
-  const coverInputRef = useRef(null);
+  const params = useParams();
+  const rawId = params.id || params.identifier;
+  const targetId = (rawId && rawId !== 'undefined' && rawId !== '[object Object]')
+    ? rawId
+    : (currentUser?.profile?._id || currentUser?.id || currentUser?._id);
 
-  const targetId = id || currentUser?.profile?._id || currentUser?.id;
+  const targetUserId = profile?.user?._id || profile?.user;
+  const currentUserId = currentUser?.id || currentUser?._id;
   const isOwnProfile =
-    currentUser &&
-    profile &&
-    (currentUser.profile?._id === profile._id ||
-      currentUser.id === (profile.user?._id || profile.user) ||
-      currentUser._id === (profile.user?._id || profile.user));
+    Boolean(currentUser && profile && (
+      (currentUserId && targetUserId && currentUserId.toString() === targetUserId.toString()) ||
+      (currentUser.profile?._id && profile._id && currentUser.profile._id.toString() === profile._id.toString())
+    ));
 
   // Fetch Profile & Relationship Status
   useEffect(() => {
     const fetchProfileData = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         const res = await profileService.getProfile(targetId);
         if (res.success && res.profile) {
           setProfile(res.profile);
 
-          const targetUserId = res.profile.user?._id || res.profile.user;
+          const profileUid = res.profile.user?._id || res.profile.user;
+          const authUid = currentUser?.id || currentUser?._id;
 
           // Check relationship status if viewing another user
-          if (currentUser && targetUserId !== (currentUser.id || currentUser._id)) {
+          if (currentUser && profileUid && authUid && profileUid.toString() !== authUid.toString()) {
             try {
-              const statusRes = await connectionService.getConnectionStatus(targetUserId);
+              const statusRes = await connectionService.getConnectionStatus(profileUid);
               if (statusRes.success) {
                 setConnectionStatus(statusRes.status);
                 setConnectionId(statusRes.connectionId);
@@ -160,7 +165,7 @@ const ProfilePage = () => {
             analyticsService
               .trackEvent({
                 type: 'PROFILE_VIEW',
-                metadata: { targetUserId },
+                metadata: { targetUserId: profileUid },
               })
               .catch(() => {});
           } else {
@@ -168,7 +173,9 @@ const ProfilePage = () => {
           }
 
           // Fetch user's real posts
-          fetchUserPosts(targetUserId);
+          fetchUserPosts(profileUid);
+        } else {
+          setError('Profile not found');
         }
       } catch (err) {
         setError(err.message || 'Profile not found');

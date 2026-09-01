@@ -118,7 +118,9 @@ const AppContent = () => {
 
           {/* Profiles */}
           <Route path="/profile/:id" element={<ProfilePage />} />
+          <Route path="/profile/:identifier" element={<ProfilePage />} />
           <Route path="/in/:id" element={<ProfilePage />} />
+          <Route path="/in/:identifier" element={<ProfilePage />} />
           <Route
             path="/profile/edit"
             element={

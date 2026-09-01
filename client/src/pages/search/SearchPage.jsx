@@ -157,7 +157,8 @@ const SearchPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {results.people.map((p) => {
                   const targetUserId = p.user?._id || p.user || p._id;
-                  const profileUrl = `/profile/${p._id || targetUserId}`;
+                  const profileSlug = p.profileSlug || p.username || p._id || targetUserId;
+                  const profileUrl = `/in/${profileSlug}`;
                   const isActionLoading = actionLoadingId === targetUserId;
 
                   return (

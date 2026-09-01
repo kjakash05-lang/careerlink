@@ -83,6 +83,13 @@ const ProfileSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    profileSlug: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+    },
     firstName: {
       type: String,
       required: [true, 'First name is required'],
@@ -186,16 +193,26 @@ ProfileSchema.virtual('completionPercentage').get(function () {
   return Math.min(score, 100);
 });
 
-// Auto-generate username slug if not defined
+// Auto-generate username slug and profileSlug if not defined
 ProfileSchema.pre('save', function (next) {
-  if (!this.username && this.firstName && this.lastName) {
+  if (this.firstName && this.lastName) {
     const baseSlug = `${this.firstName}-${this.lastName}`
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
-    this.username = `${baseSlug}`;
+    if (!this.username) {
+      this.username = baseSlug;
+    }
+    if (!this.profileSlug) {
+      this.profileSlug = this.username || baseSlug;
+    }
   }
   next();
+});
+
+// Virtual for clean slug URL
+ProfileSchema.virtual('slug').get(function () {
+  return this.profileSlug || this.username || this._id.toString();
 });
 
 // Text index for search

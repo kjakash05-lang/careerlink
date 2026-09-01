@@ -9,9 +9,15 @@ const { uploadFile, deleteFile } = require('../utils/cloudinary');
 // @access  Public / Private
 exports.getProfile = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const rawId = req.params.id;
+    if (!rawId || rawId === 'undefined' || rawId === '[object Object]') {
+      return res.status(400).json({ success: false, message: 'Invalid profile identifier.' });
+    }
+
+    const id = decodeURIComponent(rawId).trim();
     let profile = null;
 
+    // 1. If valid ObjectId, try finding by Profile._id, then User._id
     if (mongoose.Types.ObjectId.isValid(id)) {
       profile = await Profile.findById(id)
         .populate('user', 'email role createdAt')
@@ -24,10 +30,41 @@ exports.getProfile = async (req, res, next) => {
       }
     }
 
+    // 2. Try finding by profileSlug, username, or lowercase slug
     if (!profile) {
-      profile = await Profile.findOne({ username: id.toLowerCase() })
+      const cleanSlug = id.toLowerCase();
+      profile = await Profile.findOne({
+        $or: [
+          { profileSlug: cleanSlug },
+          { username: cleanSlug },
+        ],
+      })
         .populate('user', 'email role createdAt')
         .populate('skills.endorsements.user', 'email profile');
+    }
+
+    // 3. Fallback: search by name slug (e.g. "keerthana-d" or "akash-k-j")
+    if (!profile) {
+      const parts = id.split(/[-_\s]+/);
+      if (parts.length >= 2) {
+        const first = parts[0];
+        const last = parts.slice(1).join(' ');
+        profile = await Profile.findOne({
+          firstName: new RegExp(`^${first}$`, 'i'),
+          lastName: new RegExp(`^${last}$`, 'i'),
+        })
+          .populate('user', 'email role createdAt')
+          .populate('skills.endorsements.user', 'email profile');
+      } else if (parts.length === 1) {
+        profile = await Profile.findOne({
+          $or: [
+            { firstName: new RegExp(`^${parts[0]}$`, 'i') },
+            { lastName: new RegExp(`^${parts[0]}$`, 'i') },
+          ],
+        })
+          .populate('user', 'email role createdAt')
+          .populate('skills.endorsements.user', 'email profile');
+      }
     }
 
     if (!profile) {
