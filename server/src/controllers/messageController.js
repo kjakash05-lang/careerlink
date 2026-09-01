@@ -116,7 +116,8 @@ exports.getMessagesWithUser = async (req, res, next) => {
 // @access  Private
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { recipientId, content } = req.body;
+    const recipientId = req.body.recipientId || req.body.recipient;
+    const { content } = req.body;
 
     if (!recipientId || !content || !content.trim()) {
       return res.status(400).json({ success: false, message: 'Recipient and content are required.' });
@@ -158,11 +159,20 @@ exports.sendMessage = async (req, res, next) => {
       populate: { path: 'profile', select: 'firstName lastName headline avatar' },
     });
 
-    // Emit via Socket.io if IO is available on req.app
+    // Emit via Socket.io to user private rooms
     const io = req.app.get('io');
     if (io) {
-      io.to(recipientId.toString()).emit('receive_message', populatedMessage);
-      io.to(req.user.id.toString()).emit('message_sent', populatedMessage);
+      const recId = recipientId.toString();
+      const sendId = req.user.id.toString();
+      io.to(`user:${recId}`).emit('receive_message', populatedMessage);
+      io.to(`user:${recId}`).emit('message:new', populatedMessage);
+      io.to(recId).emit('receive_message', populatedMessage);
+      io.to(recId).emit('message:new', populatedMessage);
+
+      io.to(`user:${sendId}`).emit('message_sent', populatedMessage);
+      io.to(`user:${sendId}`).emit('message:sent', populatedMessage);
+      io.to(sendId).emit('message_sent', populatedMessage);
+      io.to(sendId).emit('message:sent', populatedMessage);
     }
 
     // Create notification

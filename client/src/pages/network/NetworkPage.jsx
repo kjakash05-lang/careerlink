@@ -11,12 +11,14 @@ import {
   Search,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { connectionService } from '../../services/api';
 import Avatar from '../../components/common/Avatar';
 
 const NetworkPage = () => {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const { showToast } = useNotifications();
 
   const [activeTab, setActiveTab] = useState('suggestions'); // 'suggestions' | 'connections' | 'requests'
@@ -55,6 +57,23 @@ const NetworkPage = () => {
   useEffect(() => {
     fetchNetworkData();
   }, []);
+
+  // Live Socket.IO listener for real-time network changes across devices
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnectionUpdate = () => {
+      fetchNetworkData();
+    };
+
+    socket.on('connection:updated', handleConnectionUpdate);
+    socket.on('connection_updated', handleConnectionUpdate);
+
+    return () => {
+      socket.off('connection:updated', handleConnectionUpdate);
+      socket.off('connection_updated', handleConnectionUpdate);
+    };
+  }, [socket]);
 
   const handleAcceptRequest = async (connectionId) => {
     try {

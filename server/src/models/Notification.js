@@ -18,6 +18,7 @@ const NotificationSchema = new mongoose.Schema(
         'connection_accepted',
         'post_like',
         'post_comment',
+        'post_repost',
         'skill_endorsement',
         'job_application',
         'application_status',

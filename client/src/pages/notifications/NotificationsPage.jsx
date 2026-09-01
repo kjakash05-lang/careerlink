@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Bell,
@@ -16,6 +16,9 @@ import {
   X,
   Repeat2,
   Clock,
+  Loader2,
+  MessageSquare,
+  User,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '../../context/NotificationContext';
@@ -33,6 +36,40 @@ const NotificationsPage = () => {
     handleAcceptConnection,
     handleRejectConnection,
   } = useNotifications();
+
+  // Track loading / processed state per connection/notification ID
+  const [processingId, setProcessingId] = useState(null);
+  const [processingType, setProcessingType] = useState(null); // 'accept' | 'ignore'
+  const [acceptedIds, setAcceptedIds] = useState(new Set());
+  const [ignoredIds, setIgnoredIds] = useState(new Set());
+
+  const onAccept = async (e, connectionId, notifId) => {
+    e.stopPropagation();
+    if (processingId) return;
+    setProcessingId(notifId);
+    setProcessingType('accept');
+    try {
+      await handleAcceptConnection(connectionId, notifId);
+      setAcceptedIds((prev) => new Set([...prev, notifId]));
+    } finally {
+      setProcessingId(null);
+      setProcessingType(null);
+    }
+  };
+
+  const onIgnore = async (e, connectionId, notifId) => {
+    e.stopPropagation();
+    if (processingId) return;
+    setProcessingId(notifId);
+    setProcessingType('ignore');
+    try {
+      await handleRejectConnection(connectionId, notifId);
+      setIgnoredIds((prev) => new Set([...prev, notifId]));
+    } finally {
+      setProcessingId(null);
+      setProcessingType(null);
+    }
+  };
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -54,6 +91,9 @@ const NotificationsPage = () => {
         return <Bell className="w-4 h-4 text-slate-400" />;
     }
   };
+
+  // Filter out locally ignored notifications
+  const visibleNotifications = notifications.filter((n) => !ignoredIds.has(n._id));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -109,47 +149,44 @@ const NotificationsPage = () => {
 
       {/* Notifications Stream */}
       <div className="liquid-glass divide-y divide-white/10 rounded-3xl overflow-hidden border border-white/15 shadow-2xl backdrop-blur-xl">
-        {notifications.length > 0 ? (
-          notifications.map((notif) => {
+        {visibleNotifications.length > 0 ? (
+          visibleNotifications.map((notif) => {
             const sender = notif.sender?.profile || {};
-            const senderName = sender.fullName || 'CareerLink Member';
+            const senderName = sender.fullName || `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || 'CareerLink Member';
             const senderHeadline = sender.headline || '';
             const senderAvatar = sender.avatar;
             const senderId = sender._id || notif.sender?._id || notif.sender;
             const isConnRequest = notif.type === 'connection_request';
-            const connectionId = notif.data?.connectionId;
+            const isConnAccepted = notif.type === 'connection_accepted';
+            const connectionId = notif.data?.connectionId || senderId;
+            const isAccepted = acceptedIds.has(notif._id);
+            const isProcessingThis = processingId === notif._id;
 
             return (
               <div
                 key={notif._id}
                 onClick={() => !notif.isRead && markAsRead(notif._id)}
-                className={`p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
+                className={`p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all ${
                   notif.isRead
                     ? 'bg-white/5 hover:bg-white/10'
                     : 'bg-pro-950/40 hover:bg-pro-950/60 border-l-4 border-l-pro-500'
                 }`}
               >
                 <div className="flex items-start gap-3.5 overflow-hidden flex-1">
-                  {/* Sender Avatar or Type Icon */}
-                  {senderAvatar ? (
-                    <Link to={`/profile/${senderId}`} className="shrink-0 group">
-                      <Avatar
-                        src={senderAvatar}
-                        alt={senderName}
-                        size="md"
-                        className="ring-2 ring-white/20 group-hover:scale-105 transition-transform"
-                      />
-                    </Link>
-                  ) : (
-                    <div className="p-2.5 rounded-2xl bg-white/10 border border-white/10 shadow-xs shrink-0">
-                      {getNotificationIcon(notif.type)}
-                    </div>
-                  )}
+                  {/* Sender Avatar */}
+                  <Link to={`/profile/${senderId}`} className="shrink-0 group">
+                    <Avatar
+                      src={senderAvatar}
+                      alt={senderName}
+                      size="md"
+                      className="ring-2 ring-white/20 group-hover:scale-105 transition-transform"
+                    />
+                  </Link>
 
                   <div className="overflow-hidden flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <h4 className="text-xs font-black text-white truncate">
-                        {notif.title || 'Notification'}
+                        {notif.title || (isConnAccepted ? 'Connection Accepted' : 'Notification')}
                       </h4>
                       <span className="text-[10px] text-slate-400 shrink-0">
                         {notif.createdAt
@@ -162,7 +199,7 @@ const NotificationsPage = () => {
                       {notif.message}
                     </p>
 
-                    {senderHeadline && isConnRequest && (
+                    {senderHeadline && (
                       <p className="text-[11px] text-slate-400 truncate mt-0.5">
                         {senderHeadline}
                       </p>
@@ -170,30 +207,81 @@ const NotificationsPage = () => {
                   </div>
                 </div>
 
-                {/* Direct Action Buttons for Connection Requests */}
-                {isConnRequest && connectionId && (
+                {/* 1. Connection Request Action Buttons */}
+                {isConnRequest && !isAccepted && (
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center pt-2 sm:pt-0">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAcceptConnection(connectionId, notif._id);
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-pro-600 hover:bg-pro-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-pro-600/30 transition-all hover:scale-105"
+                      onClick={(e) => onAccept(e, connectionId, notif._id)}
+                      disabled={isProcessingThis}
+                      className="px-4 py-1.5 rounded-xl bg-pro-600 hover:bg-pro-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-pro-600/30 transition-all hover:scale-105 disabled:opacity-50 cursor-pointer"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Accept</span>
+                      {isProcessingThis && processingType === 'accept' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Accepting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Accept</span>
+                        </>
+                      )}
                     </button>
 
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRejectConnection(connectionId, notif._id);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1 border border-white/15 transition-all"
+                      onClick={(e) => onIgnore(e, connectionId, notif._id)}
+                      disabled={isProcessingThis}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1 border border-white/15 transition-all disabled:opacity-50 cursor-pointer"
                     >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Ignore</span>
+                      {isProcessingThis && processingType === 'ignore' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Ignoring...</span>
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-3.5 h-3.5" />
+                          <span>Ignore</span>
+                        </>
+                      )}
                     </button>
+                  </div>
+                )}
+
+                {/* 2. State After Acceptance */}
+                {isConnRequest && isAccepted && (
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Connected</span>
+                    </span>
+                    <Link
+                      to={`/messages?userId=${senderId}`}
+                      className="pro-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-pro-400" />
+                      <span>Message</span>
+                    </Link>
+                  </div>
+                )}
+
+                {/* 3. Connection Accepted Actions for Original Sender */}
+                {isConnAccepted && (
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center pt-2 sm:pt-0">
+                    <Link
+                      to={`/profile/${senderId}`}
+                      className="pro-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                    >
+                      <User className="w-3.5 h-3.5 text-pro-400" />
+                      <span>View Profile</span>
+                    </Link>
+                    <Link
+                      to={`/messages?userId=${senderId}`}
+                      className="pro-btn-primary text-xs py-1.5 px-3.5 flex items-center gap-1 shadow-md shadow-pro-600/30"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Message</span>
+                    </Link>
                   </div>
                 )}
               </div>

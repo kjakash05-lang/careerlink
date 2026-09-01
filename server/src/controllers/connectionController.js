@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Connection = require('../models/Connection');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
@@ -132,11 +133,14 @@ exports.sendRequest = async (req, res, next) => {
         type: 'connection_request',
         title: 'New Connection Request',
         message: `${senderName} sent you a connection request.`,
-        data: { connectionId: existing._id },
+        data: { connectionId: existing._id, senderId: req.user.id },
       });
 
       const io = req.app.get('io');
-      emitConnectionUpdate(io, recipientId, req.user.id, { type: 'REQUEST_RECEIVED', connection: existing });
+      emitConnectionUpdate(io, recipientId, req.user.id, {
+        type: 'REQUEST_RECEIVED',
+        connection: existing,
+      });
 
       return res.status(200).json({ success: true, message: 'Connection request sent.', connection: existing });
     }
@@ -153,11 +157,14 @@ exports.sendRequest = async (req, res, next) => {
       type: 'connection_request',
       title: 'New Connection Request',
       message: `${senderName} sent you a connection request.`,
-      data: { connectionId: connection._id },
+      data: { connectionId: connection._id, senderId: req.user.id },
     });
 
     const io = req.app.get('io');
-    emitConnectionUpdate(io, recipientId, req.user.id, { type: 'REQUEST_RECEIVED', connection });
+    emitConnectionUpdate(io, recipientId, req.user.id, {
+      type: 'REQUEST_RECEIVED',
+      connection,
+    });
 
     res.status(201).json({ success: true, message: 'Connection request sent.', connection });
   } catch (err) {
@@ -170,7 +177,21 @@ exports.sendRequest = async (req, res, next) => {
 // @access  Private
 exports.acceptRequest = async (req, res, next) => {
   try {
-    const connection = await Connection.findById(req.params.id);
+    const { id } = req.params;
+
+    let connection = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      connection = await Connection.findById(id);
+      if (!connection) {
+        // Try finding by requester ID
+        connection = await Connection.findOne({
+          requester: id,
+          recipient: req.user.id,
+          status: 'pending',
+        });
+      }
+    }
+
     if (!connection) {
       return res.status(404).json({ success: false, message: 'Connection request not found.' });
     }
@@ -180,33 +201,45 @@ exports.acceptRequest = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to accept this request.' });
     }
 
+    if (connection.status === 'accepted') {
+      return res.status(200).json({ success: true, message: 'Already connected.', connection });
+    }
+
     connection.status = 'accepted';
     await connection.save();
 
     const accepterProfile = await Profile.findOne({ user: req.user.id });
     const accepterName = accepterProfile ? accepterProfile.fullName : 'Someone';
 
-    // Mark incoming connection request notification as read
+    // Mark incoming connection request notifications as read
     await Notification.updateMany(
-      { recipient: req.user.id, 'data.connectionId': connection._id },
+      {
+        recipient: req.user.id,
+        $or: [
+          { 'data.connectionId': connection._id },
+          { sender: connection.requester, type: 'connection_request' },
+        ],
+      },
       { isRead: true }
     );
 
-    // Send notification to requester
+    // Send real acceptance notification to original sender (requester)
     await sendNotification(req, {
       recipient: connection.requester,
       sender: req.user.id,
       type: 'connection_accepted',
       title: 'Connection Accepted',
       message: `${accepterName} accepted your connection request.`,
-      data: { connectionId: connection._id },
+      data: { connectionId: connection._id, accepterId: req.user.id },
     });
 
-    // Notify both users in real-time
+    // Notify both users' client sockets in real-time
     const io = req.app.get('io');
     emitConnectionUpdate(io, connection.recipient, connection.requester, {
       type: 'REQUEST_ACCEPTED',
       connection,
+      recipientId: connection.recipient,
+      requesterId: connection.requester,
     });
 
     res.status(200).json({ success: true, message: 'Connection request accepted.', connection });
@@ -215,36 +248,62 @@ exports.acceptRequest = async (req, res, next) => {
   }
 };
 
-// @desc    Reject connection request
+// @desc    Reject / Ignore connection request
 // @route   PUT /api/connections/:id/reject
 // @access  Private
 exports.rejectRequest = async (req, res, next) => {
   try {
-    const connection = await Connection.findById(req.params.id);
+    const { id } = req.params;
+
+    let connection = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      connection = await Connection.findById(id);
+      if (!connection) {
+        // Try finding by requester ID
+        connection = await Connection.findOne({
+          requester: id,
+          recipient: req.user.id,
+          status: 'pending',
+        });
+      }
+    }
+
     if (!connection) {
       return res.status(404).json({ success: false, message: 'Connection request not found.' });
     }
 
     if (connection.recipient.toString() !== req.user.id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to reject this request.' });
+      return res.status(403).json({ success: false, message: 'Not authorized to ignore this request.' });
     }
 
-    connection.status = 'rejected';
-    await connection.save();
+    const requesterId = connection.requester.toString();
+    const recipientId = connection.recipient.toString();
+    const connId = connection._id;
 
-    // Mark notification as read
+    // Delete or mark rejected so requester can connect again in the future
+    await connection.deleteOne();
+
+    // Mark incoming notification as read
     await Notification.updateMany(
-      { recipient: req.user.id, 'data.connectionId': connection._id },
+      {
+        recipient: req.user.id,
+        $or: [
+          { 'data.connectionId': connId },
+          { sender: requesterId, type: 'connection_request' },
+        ],
+      },
       { isRead: true }
     );
 
     const io = req.app.get('io');
-    emitConnectionUpdate(io, connection.recipient, connection.requester, {
+    emitConnectionUpdate(io, recipientId, requesterId, {
       type: 'REQUEST_REJECTED',
-      connectionId: req.params.id,
+      connectionId: connId,
+      requesterId,
+      recipientId,
     });
 
-    res.status(200).json({ success: true, message: 'Connection request rejected.', connection });
+    res.status(200).json({ success: true, message: 'Connection request ignored.' });
   } catch (err) {
     next(err);
   }
@@ -302,55 +361,59 @@ exports.removeConnection = async (req, res, next) => {
     const io = req.app.get('io');
     emitConnectionUpdate(io, userId, req.user.id, {
       type: 'CONNECTION_REMOVED',
-      userId: req.user.id,
+      targetUserId: userId,
     });
 
-    res.status(200).json({ success: true, message: 'Connection removed.' });
+    res.status(200).json({ success: true, message: 'Connection removed successfully.' });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get current user's connections
+// @desc    Get user connections
 // @route   GET /api/connections
 // @access  Private
 exports.getMyConnections = async (req, res, next) => {
   try {
     const connections = await Connection.find({
-      $or: [{ requester: req.user.id }, { recipient: req.user.id }],
-      status: 'accepted',
+      $or: [
+        { requester: req.user.id, status: 'accepted' },
+        { recipient: req.user.id, status: 'accepted' },
+      ],
     })
       .populate({
         path: 'requester',
-        select: 'email role',
-        populate: { path: 'profile', select: 'firstName lastName headline avatar location skills' },
+        select: 'email role createdAt',
+        populate: { path: 'profile', select: 'firstName lastName headline avatar location skills education username' },
       })
       .populate({
         path: 'recipient',
-        select: 'email role',
-        populate: { path: 'profile', select: 'firstName lastName headline avatar location skills' },
-      });
+        select: 'email role createdAt',
+        populate: { path: 'profile', select: 'firstName lastName headline avatar location skills education username' },
+      })
+      .sort({ updatedAt: -1 });
 
-    // Map to connected user objects
-    const connectedUsers = connections
-      .filter((conn) => conn.requester && conn.recipient)
-      .map((conn) => {
-        const isRequester = conn.requester._id.toString() === req.user.id.toString();
-        const otherUser = isRequester ? conn.recipient : conn.requester;
-        return {
-          connectionId: conn._id,
-          connectedAt: conn.updatedAt,
-          user: otherUser,
-        };
-      });
+    const formatted = connections.map((conn) => {
+      const isRequester = conn.requester?._id?.toString() === req.user.id.toString();
+      const otherUser = isRequester ? conn.recipient : conn.requester;
+      return {
+        connectionId: conn._id,
+        connectedSince: conn.updatedAt,
+        user: otherUser,
+      };
+    }).filter((c) => c.user !== null && c.user !== undefined);
 
-    res.status(200).json({ success: true, count: connectedUsers.length, connections: connectedUsers });
+    res.status(200).json({
+      success: true,
+      count: formatted.length,
+      connections: formatted,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get pending received and sent requests
+// @desc    Get pending connection requests (received & sent)
 // @route   GET /api/connections/pending
 // @access  Private
 exports.getPendingRequests = async (req, res, next) => {
@@ -358,20 +421,24 @@ exports.getPendingRequests = async (req, res, next) => {
     const received = await Connection.find({
       recipient: req.user.id,
       status: 'pending',
-    }).populate({
-      path: 'requester',
-      select: 'email role',
-      populate: { path: 'profile', select: 'firstName lastName headline avatar location skills' },
-    });
+    })
+      .populate({
+        path: 'requester',
+        select: 'email role createdAt',
+        populate: { path: 'profile', select: 'firstName lastName headline avatar location username' },
+      })
+      .sort({ createdAt: -1 });
 
     const sent = await Connection.find({
       requester: req.user.id,
       status: 'pending',
-    }).populate({
-      path: 'recipient',
-      select: 'email role',
-      populate: { path: 'profile', select: 'firstName lastName headline avatar location skills' },
-    });
+    })
+      .populate({
+        path: 'recipient',
+        select: 'email role createdAt',
+        populate: { path: 'profile', select: 'firstName lastName headline avatar location username' },
+      })
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -383,33 +450,35 @@ exports.getPendingRequests = async (req, res, next) => {
   }
 };
 
-// @desc    Get suggested connections
+// @desc    Get connection suggestions (people you may know)
 // @route   GET /api/connections/suggestions
 // @access  Private
 exports.getSuggestions = async (req, res, next) => {
   try {
-    // Find all users who are already connected or have pending requests
+    // Get all users already connected or pending
     const existingConnections = await Connection.find({
       $or: [{ requester: req.user.id }, { recipient: req.user.id }],
     });
 
-    const excludedUserIds = [
-      req.user.id,
-      ...existingConnections.map((c) =>
-        c.requester.toString() === req.user.id.toString() ? c.recipient.toString() : c.requester.toString()
-      ),
-    ];
+    const excludedUserIds = [req.user.id];
+    existingConnections.forEach((conn) => {
+      if (conn.requester.toString() === req.user.id.toString()) {
+        excludedUserIds.push(conn.recipient);
+      } else {
+        excludedUserIds.push(conn.requester);
+      }
+    });
 
-    // Find up to 16 potential connections from real database users
-    const users = await User.find({ _id: { $nin: excludedUserIds }, isActive: true })
-      .limit(16)
+    const suggestions = await User.find({ _id: { $nin: excludedUserIds } })
       .populate('profile', 'firstName lastName headline avatar location skills')
-      .select('email role');
+      .limit(10)
+      .sort({ createdAt: -1 });
 
-    // Filter only users who have a valid profile
-    const validSuggestions = users.filter((u) => u.profile);
-
-    res.status(200).json({ success: true, count: validSuggestions.length, suggestions: validSuggestions });
+    res.status(200).json({
+      success: true,
+      count: suggestions.length,
+      suggestions,
+    });
   } catch (err) {
     next(err);
   }
