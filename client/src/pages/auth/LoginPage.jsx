@@ -8,7 +8,6 @@ import CinematicSocialFooter from '../../components/layout/CinematicSocialFooter
 
 const DEMO_ACCOUNTS = [
   { name: 'Akash K J', email: 'akash.kj@example.com', role: 'Full Stack Architect' },
-  { name: 'Keerthana D', email: 'keerthana.d@example.com', role: 'Software Engineer' },
   { name: 'Ajay P K', email: 'ajay.pk@example.com', role: 'Full Stack Engineer' },
   { name: 'Akshay Guptha L', email: 'akshay.guptha@example.com', role: 'Backend Engineer' },
   { name: 'Akshay Ravi', email: 'akshay.ravi@example.com', role: 'UI/UX Engineer' },
