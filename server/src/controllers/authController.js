@@ -42,9 +42,10 @@ exports.register = async (req, res, next) => {
       });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
     const assignedRole = role === 'recruiter' ? 'recruiter' : 'candidate';
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -54,7 +55,7 @@ exports.register = async (req, res, next) => {
 
     // Create user
     const user = await User.create({
-      email,
+      email: cleanEmail,
       password,
       role: assignedRole,
       authProvider: 'local',
@@ -95,8 +96,10 @@ exports.login = async (req, res, next) => {
       });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     // Find user with password
-    const user = await User.findOne({ email }).select('+password').populate('profile');
+    const user = await User.findOne({ email: cleanEmail }).select('+password').populate('profile');
     if (!user) {
       return res.status(401).json({
         success: false,

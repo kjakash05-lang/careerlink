@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, Loader2, Lock, Mail } from 'lucide-react';
+import { ArrowRight, Loader2, Lock, Mail, Sparkles, UserCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import CinematicBackground from '../../components/layout/CinematicBackground';
 import CinematicNavbar from '../../components/layout/CinematicNavbar';
 import CinematicSocialFooter from '../../components/layout/CinematicSocialFooter';
+
+const DEMO_ACCOUNTS = [
+  { name: 'Akash K J', email: 'akash.kj@example.com', role: 'Full Stack Architect' },
+  { name: 'Keerthana D', email: 'keerthana.d@example.com', role: 'Software Engineer' },
+  { name: 'Ajay P K', email: 'ajay.pk@example.com', role: 'Full Stack Engineer' },
+  { name: 'Akshay Guptha L', email: 'akshay.guptha@example.com', role: 'Backend Engineer' },
+  { name: 'Akshay Ravi', email: 'akshay.ravi@example.com', role: 'UI/UX Engineer' },
+];
 
 const LoginPage = () => {
   const { login, isLoading, error } = useAuth();
@@ -20,9 +28,22 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
-    const res = await login(email, password);
+    const cleanEmail = email.trim().toLowerCase();
+    const res = await login(cleanEmail, password);
     if (res.success) {
       navigate(from, { replace: true });
+    } else {
+      setFormError(res.message);
+    }
+  };
+
+  const handleQuickLogin = async (account) => {
+    setEmail(account.email);
+    setPassword('password123');
+    setFormError(null);
+    const res = await login(account.email, 'password123');
+    if (res.success) {
+      navigate('/feed', { replace: true });
     } else {
       setFormError(res.message);
     }
@@ -53,7 +74,7 @@ const LoginPage = () => {
           </div>
 
           {/* Login Form Liquid-Glass Card */}
-          <div className="liquid-glass p-6 sm:p-7 rounded-3xl space-y-4">
+          <div className="liquid-glass p-6 sm:p-7 rounded-3xl space-y-4 shadow-2xl">
             {(formError || error) && (
               <div className="p-3 bg-rose-950/70 border border-rose-800/80 text-rose-200 text-xs rounded-xl">
                 {formError || error}
@@ -94,7 +115,7 @@ const LoginPage = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-pro-600 via-pro-500 to-indigo-600 hover:from-pro-500 hover:to-indigo-500 shadow-lg shadow-pro-600/40 hover:shadow-pro-600/60 transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                className="w-full py-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-pro-600 via-pro-500 to-indigo-600 hover:from-pro-500 hover:to-indigo-500 shadow-lg shadow-pro-600/40 hover:shadow-pro-600/60 transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -110,7 +131,36 @@ const LoginPage = () => {
               </button>
             </form>
 
-            <div className="pt-3 border-t border-white/10 text-center text-xs text-slate-400">
+            {/* Quick 1-Click Login Chips */}
+            <div className="pt-3 border-t border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  <span>1-Click Test Sign In</span>
+                </span>
+                <span className="text-[9px] text-slate-500">password: password123</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {DEMO_ACCOUNTS.map((acc, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleQuickLogin(acc)}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-left transition-all group"
+                  >
+                    <p className="text-xs font-bold text-white group-hover:text-pro-300 truncate">
+                      {acc.name}
+                    </p>
+                    <p className="text-[9.5px] text-slate-400 truncate">
+                      {acc.role}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-white/10 text-center text-xs text-slate-400">
               Don't have a CareerLink account?{' '}
               <Link to="/register" className="font-bold text-pro-400 hover:text-pro-300 hover:underline">
                 Join now

@@ -223,6 +223,34 @@ const usersData = [
       ],
     },
   },
+  // 5. Software Engineer & Java Developer - Keerthana D
+  {
+    email: 'keerthana.d@example.com',
+    password: 'password123',
+    role: 'candidate',
+    profile: {
+      firstName: 'Keerthana',
+      lastName: 'D',
+      headline: 'Software Engineer & Java Developer | Spring Boot, Microservices & Full Stack',
+      about: 'Software engineer specializing in Java enterprise systems, Spring Boot microservices, and React frontend development.',
+      location: 'Bengaluru, India',
+      phone: '+91 98765 55667',
+      preferredWorkMode: 'Remote',
+      targetRoles: ['Software Engineer', 'Java Developer'],
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+      skills: [{ name: 'Java' }, { name: 'Spring Boot' }, { name: 'React' }, { name: 'SQL' }, { name: 'REST APIs' }],
+      education: [
+        {
+          school: 'Visvesvaraya Technological University',
+          degree: 'B.E. in Computer Science',
+          fieldOfStudy: 'Computer Science',
+          startDate: '2020',
+          endDate: '2024',
+        },
+      ],
+    },
+  },
   // 5. Candidate - ML / Data Science
   {
     email: 'priya.sharma@example.com',
