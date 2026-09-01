@@ -1,10 +1,13 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { AnalyticsProvider } from './context/AnalyticsContext';
+
+// Splash Screen
+import SplashScreen from './components/common/SplashScreen';
 
 // Layout
 import Navbar from './components/layout/Navbar';
@@ -78,6 +81,184 @@ const AppLayout = ({ children }) => {
   );
 };
 
+const AppContent = () => {
+  const { isAuthenticated } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+    // Smooth auto-routing based on session state on root navigation
+    if (location.pathname === '/' || location.pathname === '/login') {
+      if (isAuthenticated) {
+        navigate('/feed', { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
+    }
+  };
+
+  return (
+    <>
+      {showSplash && (
+        <SplashScreen
+          onFinish={handleSplashFinish}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
+
+      <AppLayout>
+        <Routes>
+          {/* Public & Feed */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/feed" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* Profiles */}
+          <Route path="/profile/:id" element={<ProfilePage />} />
+          <Route
+            path="/profile/edit"
+            element={
+              <ProtectedRoute>
+                <EditProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Network */}
+          <Route
+            path="/network"
+            element={
+              <ProtectedRoute>
+                <NetworkPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Jobs & Recommendations */}
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route
+            path="/jobs/recommendations"
+            element={
+              <ProtectedRoute>
+                <JobRecommendationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/saved-jobs"
+            element={
+              <ProtectedRoute>
+                <SavedJobsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Companies */}
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/company/:id" element={<CompanyDetailPage />} />
+          <Route
+            path="/companies/create"
+            element={
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <CreateCompanyPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Articles */}
+          <Route path="/articles" element={<ArticlesPage />} />
+          <Route path="/articles/:id" element={<ArticleDetailPage />} />
+          <Route
+            path="/articles/create"
+            element={
+              <ProtectedRoute>
+                <CreateArticlePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Messages & Notifications */}
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Global Search & Analytics */}
+          <Route path="/search" element={<SearchPage />} />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Recruiter ATS Suite */}
+          <Route
+            path="/recruiter/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <RecruiterDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recruiter/jobs"
+            element={
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <RecruiterJobsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recruiter/jobs/create"
+            element={
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <CreateJobPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recruiter/applicants"
+            element={
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <RecruiterApplicantsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recruiter/candidates"
+            element={
+              <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
+                <CandidateSearchPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all fallback */}
+          <Route path="*" element={<Navigate to="/feed" replace />} />
+        </Routes>
+      </AppLayout>
+    </>
+  );
+};
+
 function App() {
   return (
     <Router>
@@ -86,159 +267,13 @@ function App() {
           <AnalyticsProvider>
             <SocketProvider>
               <NotificationProvider>
-                <AppLayout>
-                <Routes>
-                  {/* Public & Feed */}
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/feed" element={<HomePage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-
-                  {/* Profiles */}
-                  <Route path="/profile/:id" element={<ProfilePage />} />
-                  <Route
-                    path="/profile/edit"
-                    element={
-                      <ProtectedRoute>
-                        <EditProfilePage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Network */}
-                  <Route
-                    path="/network"
-                    element={
-                      <ProtectedRoute>
-                        <NetworkPage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Jobs & Recommendations */}
-                  <Route path="/jobs" element={<JobsPage />} />
-                  <Route
-                    path="/jobs/recommendations"
-                    element={
-                      <ProtectedRoute>
-                        <JobRecommendationsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/saved-jobs"
-                    element={
-                      <ProtectedRoute>
-                        <SavedJobsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Companies */}
-                  <Route path="/companies" element={<CompaniesPage />} />
-                  <Route path="/company/:id" element={<CompanyDetailPage />} />
-                  <Route
-                    path="/companies/create"
-                    element={
-                      <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
-                        <CreateCompanyPage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Articles */}
-                  <Route path="/articles" element={<ArticlesPage />} />
-                  <Route path="/articles/:id" element={<ArticleDetailPage />} />
-                  <Route
-                    path="/articles/create"
-                    element={
-                      <ProtectedRoute>
-                        <CreateArticlePage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Messages & Notifications */}
-                  <Route
-                    path="/messages"
-                    element={
-                      <ProtectedRoute>
-                        <MessagesPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/notifications"
-                    element={
-                      <ProtectedRoute>
-                        <NotificationsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Global Search & Analytics */}
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route
-                    path="/analytics"
-                    element={
-                      <ProtectedRoute>
-                        <AnalyticsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Recruiter ATS Suite */}
-                  <Route
-                    path="/recruiter/dashboard"
-                    element={
-                      <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
-                        <RecruiterDashboardPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/recruiter/jobs"
-                    element={
-                      <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
-                        <RecruiterJobsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/recruiter/jobs/create"
-                    element={
-                      <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
-                        <CreateJobPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/recruiter/applicants"
-                    element={
-                      <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
-                        <RecruiterApplicantsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/recruiter/candidates"
-                    element={
-                      <ProtectedRoute allowedRoles={['recruiter', 'admin']}>
-                        <CandidateSearchPage />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Catch-all fallback */}
-                  <Route path="*" element={<Navigate to="/feed" replace />} />
-                </Routes>
-              </AppLayout>
-            </NotificationProvider>
-          </SocketProvider>
-        </AnalyticsProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </Router>
+                <AppContent />
+              </NotificationProvider>
+            </SocketProvider>
+          </AnalyticsProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </Router>
   );
 }
 
