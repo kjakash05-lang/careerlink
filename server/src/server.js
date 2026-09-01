@@ -140,6 +140,7 @@ app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/recruiter', require('./routes/recruiterRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
+app.use('/api/users', require('./routes/searchRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
