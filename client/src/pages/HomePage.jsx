@@ -13,17 +13,18 @@ import {
   PenSquare,
   Loader2,
   ArrowRight,
+  BarChart3,
+  Bookmark,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { postService, jobService, connectionService } from '../services/api';
+import { postService, jobService } from '../services/api';
 import Avatar from '../components/common/Avatar';
 import PostCard from '../components/feed/PostCard';
 import CreatePostModal from '../components/feed/CreatePostModal';
 import QuickActionsWidget from '../components/dashboard/QuickActionsWidget';
 import CareerInsightsWidget from '../components/dashboard/CareerInsightsWidget';
-import DevelopedByWidget from '../components/common/DevelopedByWidget';
 import CompanyInsightsDashboard from '../components/dashboard/CompanyInsightsDashboard';
-import OnboardingWelcomeBanner from '../components/dashboard/OnboardingWelcomeBanner';
 import { useAnalytics } from '../context/AnalyticsContext';
 
 const HomePage = () => {
@@ -31,7 +32,6 @@ const HomePage = () => {
   const { recordEvent } = useAnalytics();
   const [posts, setPosts] = useState([]);
   const [recommendedJobs, setRecommendedJobs] = useState([]);
-  const [suggestedConnections, setSuggestedConnections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -43,7 +43,7 @@ const HomePage = () => {
     else setIsLoadingMore(true);
 
     try {
-      const res = await postService.getPosts({ page: pageNum, limit: 10 });
+      const res = await postService.getPosts({ page: pageNum, limit: 12 });
       if (res.success) {
         if (append) {
           setPosts((prev) => [...prev, ...res.posts]);
@@ -67,23 +67,16 @@ const HomePage = () => {
       if (isAuthenticated) {
         try {
           const userSkills = (profile?.skills || []).map((s) => (typeof s === 'string' ? s : s.name).toLowerCase());
-          const [jobsRes, connRes] = await Promise.allSettled([
-            jobService.getJobs({ limit: 6 }),
-            connectionService.getSuggestions(),
-          ]);
+          const jobsRes = await jobService.getJobs({ limit: 6 });
 
-          if (jobsRes.status === 'fulfilled' && jobsRes.value.success) {
-            const allJobs = jobsRes.value.jobs || [];
-            // Intelligent Skill matching: prioritize jobs matching user skills
+          if (jobsRes.success) {
+            const allJobs = jobsRes.jobs || [];
             const matched = allJobs.filter((j) => {
               if (userSkills.length === 0) return true;
               const text = `${j.title} ${j.description} ${(j.skillsRequired || []).join(' ')}`.toLowerCase();
               return userSkills.some((sk) => text.includes(sk));
             });
-            setRecommendedJobs((matched.length > 0 ? matched : allJobs).slice(0, 3));
-          }
-          if (connRes.status === 'fulfilled' && connRes.value.success) {
-            setSuggestedConnections(connRes.value.suggestions.slice(0, 3));
+            setRecommendedJobs((matched.length > 0 ? matched : allJobs).slice(0, 4));
           }
         } catch (err) {
           console.error(err);
@@ -123,7 +116,7 @@ const HomePage = () => {
           {isAuthenticated ? (
             <>
               {/* Profile Overview Card */}
-              <div className="pro-card overflow-hidden">
+              <div className="pro-card overflow-hidden border border-white/15 shadow-xl backdrop-blur-xl">
                 {/* Cover Banner */}
                 <div className="h-20 bg-gradient-to-r from-pro-700 via-pro-600 to-indigo-800 relative">
                   {profile?.coverImage && (
@@ -138,86 +131,89 @@ const HomePage = () => {
                 {/* Profile Bio */}
                 <div className="p-4 pt-0 text-center relative">
                   <div className="-mt-10 mb-2 flex justify-center">
-                    <Avatar
-                      src={profile?.avatar}
-                      alt={profile?.fullName || user?.email}
-                      size="xl"
-                      className="ring-4 ring-white dark:ring-slate-900 shadow-md bg-white dark:bg-slate-900"
-                    />
+                    <Link to="/profile/me">
+                      <Avatar
+                        src={profile?.avatar}
+                        alt={profile?.fullName || user?.email}
+                        size="xl"
+                        className="ring-4 ring-slate-900 shadow-xl"
+                      />
+                    </Link>
                   </div>
+
                   <Link
-                    to={`/profile/${user.profile?._id || user.id}`}
-                    className="font-bold text-slate-900 dark:text-white hover:text-pro-600 dark:hover:text-pro-400 text-sm line-clamp-1"
+                    to="/profile/me"
+                    className="font-extrabold text-sm text-white hover:text-pro-300 block truncate"
                   >
-                    {profile?.fullName || user.email}
+                    {profile?.fullName || user?.email?.split('@')[0]}
                   </Link>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
-                    {profile?.headline || (user.role === 'recruiter' ? 'Talent Acquisition' : 'Professional')}
+
+                  <p className="text-[11px] text-slate-300 mt-0.5 line-clamp-2 font-medium">
+                    {profile?.headline || 'CareerLink Member'}
                   </p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{profile?.location || 'Global'}</p>
 
-                  {/* Quick Links */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-left space-y-2">
-                    <Link
-                      to="/network"
-                      className="flex justify-between items-center text-slate-600 dark:text-slate-400 hover:text-pro-600 font-medium"
-                    >
-                      <span>Connections</span>
-                      <span className="font-bold text-pro-600 dark:text-pro-400">Network Hub</span>
+                  <div className="mt-3 pt-3 border-t border-white/10 flex justify-between text-xs font-semibold text-slate-300">
+                    <Link to="/network" className="hover:text-pro-300 transition-colors">
+                      <span className="block text-[10px] text-slate-400">Network</span>
+                      <span className="font-extrabold text-white">500+</span>
                     </Link>
-                    <Link
-                      to="/saved-jobs"
-                      className="flex justify-between items-center text-slate-600 dark:text-slate-400 hover:text-pro-600 font-medium"
-                    >
-                      <span>Saved Jobs</span>
-                      <span className="font-bold text-slate-900 dark:text-slate-200">View</span>
+                    <Link to="/analytics" className="hover:text-pro-300 transition-colors">
+                      <span className="block text-[10px] text-slate-400">Analytics</span>
+                      <span className="font-extrabold text-emerald-400">Active</span>
+                    </Link>
+                    <Link to="/saved-jobs" className="hover:text-pro-300 transition-colors">
+                      <span className="block text-[10px] text-slate-400">Saved</span>
+                      <span className="font-extrabold text-white">Jobs</span>
                     </Link>
                   </div>
+                </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <Link
-                      to="/profile/edit"
-                      className="w-full pro-btn-secondary text-xs py-1.5 block text-center"
-                    >
-                      Edit Profile & Resume
-                    </Link>
-                  </div>
+                {/* My Items Quick Navigation Link */}
+                <div className="p-2.5 bg-white/5 border-t border-white/10 text-xs">
+                  <Link
+                    to="/saved-jobs"
+                    className="flex items-center gap-2 text-slate-300 hover:text-white font-bold p-1.5 rounded-lg transition-colors"
+                  >
+                    <Bookmark className="w-3.5 h-3.5 text-pro-400" />
+                    <span>My Saved Items</span>
+                  </Link>
                 </div>
               </div>
 
               {/* Quick Actions Widget */}
-              <QuickActionsWidget onOpenPostModal={() => setCreatePostOpen(true)} />
+              <QuickActionsWidget />
 
-              {/* Career Insights Widget */}
-              <CareerInsightsWidget profile={profile} user={user} />
+              {/* Career Analytics Snapshot */}
+              <CareerInsightsWidget />
             </>
           ) : (
-            <div className="pro-card p-5 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-pro-50 dark:bg-pro-950 text-pro-600 dark:text-pro-400 flex items-center justify-center mx-auto mb-3 font-black text-xl">
+            <div className="pro-card p-6 text-center space-y-4 border border-white/15 shadow-xl backdrop-blur-xl">
+              <div className="w-12 h-12 rounded-2xl bg-pro-600/20 text-pro-400 flex items-center justify-center mx-auto border border-pro-500/30 font-black text-xl">
                 CL
               </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm mb-1">Welcome to CareerLink</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                Connect. Grow. Get Hired. Join a vibrant community of verified engineers, founders, and recruiters.
-              </p>
-              <Link to="/register" className="w-full pro-btn-primary text-xs py-2 block mb-2">
-                Join CareerLink Free
-              </Link>
-              <Link to="/login" className="w-full pro-btn-secondary text-xs py-2 block">
-                Sign In
-              </Link>
+              <div>
+                <h3 className="text-base font-black text-white">Welcome to CareerLink</h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  Connect with engineers, share technical insights, and discover opportunities.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Link to="/login" className="pro-btn-primary text-xs py-2.5 w-full block text-center">
+                  Sign In
+                </Link>
+                <Link to="/register" className="pro-btn-secondary text-xs py-2.5 w-full block text-center">
+                  Join Free
+                </Link>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Center Column: Feed & Post Composer (6 cols) */}
+        {/* Center Column: Create Post & Home Stream (6 cols on lg) */}
         <div className="md:col-span-8 lg:col-span-6 space-y-4">
-          {/* Onboarding Welcome Banner for New Accounts */}
-          <OnboardingWelcomeBanner onOpenPostModal={() => setCreatePostOpen(true)} />
-
-          {/* Post Composer Box */}
+          {/* Create Post Card */}
           {isAuthenticated && (
-            <div className="pro-card p-4 space-y-3">
+            <div className="pro-card p-4 border border-white/15 shadow-xl backdrop-blur-xl">
               <div className="flex items-center gap-3">
                 <Avatar
                   src={profile?.avatar}
@@ -225,38 +221,33 @@ const HomePage = () => {
                   size="md"
                 />
                 <button
-                  type="button"
                   onClick={() => setCreatePostOpen(true)}
-                  className="flex-1 text-left px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-750 text-slate-500 dark:text-slate-400 rounded-xl text-xs font-semibold transition-colors"
+                  className="flex-1 text-left px-4 py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-xs font-medium text-slate-300 border border-white/10 hover:border-pro-400/40 transition-all cursor-pointer shadow-xs"
                 >
-                  Start a post, share a project or insight...
+                  Start a post, share knowledge or code...
                 </button>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs font-bold">
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 px-2">
                 <button
-                  type="button"
                   onClick={() => setCreatePostOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-pro-600 dark:text-pro-400 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-pro-300 transition-colors p-1.5 rounded-lg"
                 >
-                  <PenSquare className="w-4 h-4" />
-                  <span>Create Post</span>
+                  <ImageIcon className="w-4 h-4 text-emerald-400" />
+                  <span>Media</span>
                 </button>
-
                 <button
-                  type="button"
                   onClick={() => setCreatePostOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-pro-300 transition-colors p-1.5 rounded-lg"
                 >
-                  <ImageIcon className="w-4 h-4" />
-                  <span>Photo</span>
+                  <PenSquare className="w-4 h-4 text-amber-400" />
+                  <span>Post</span>
                 </button>
-
                 <Link
                   to="/articles/create"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-pro-300 transition-colors p-1.5 rounded-lg"
                 >
-                  <FileText className="w-4 h-4" />
+                  <FileText className="w-4 h-4 text-indigo-400" />
                   <span>Write Article</span>
                 </Link>
               </div>
@@ -267,7 +258,7 @@ const HomePage = () => {
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((n) => (
-                <div key={n} className="pro-card p-5 animate-pulse bg-slate-200 dark:bg-slate-800 h-48" />
+                <div key={n} className="pro-card p-5 animate-pulse bg-slate-800/40 border border-white/10 h-48 rounded-2xl" />
               ))}
             </div>
           ) : posts.length > 0 ? (
@@ -303,10 +294,10 @@ const HomePage = () => {
               )}
             </div>
           ) : (
-            <div className="pro-card p-12 text-center">
-              <PenSquare className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">No posts in your feed yet</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Be the first to share an engineering milestone or insight with the community!</p>
+            <div className="pro-card p-12 text-center border border-white/15">
+              <PenSquare className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <h3 className="text-sm font-bold text-white">No posts in your feed yet</h3>
+              <p className="text-xs text-slate-400 mt-1">Be the first to share an engineering milestone or insight with the community!</p>
               {isAuthenticated && (
                 <button
                   onClick={() => setCreatePostOpen(true)}
@@ -320,32 +311,32 @@ const HomePage = () => {
           )}
         </div>
 
-        {/* Right Column: Recommendations & Network Suggestions (3 cols) */}
+        {/* Right Column: Recommended Jobs & Insights (3 cols on lg) */}
         <div className="hidden lg:block lg:col-span-3 space-y-4">
           {/* Recommended Jobs Widget */}
-          <div className="pro-card p-4 space-y-3">
+          <div className="pro-card p-4 space-y-3 border border-white/15 shadow-xl backdrop-blur-xl">
             <div className="flex items-center justify-between">
-              <h4 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <h4 className="font-extrabold text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Job Recommendations</span>
               </h4>
-              <Link to="/jobs/recommendations" className="text-[11px] font-bold text-pro-600 dark:text-pro-400 hover:underline">
+              <Link to="/jobs/recommendations" className="text-[11px] font-bold text-pro-400 hover:underline">
                 View All
               </Link>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-white/10">
               {recommendedJobs.map((job) => (
                 <div key={job._id} className="py-2.5 first:pt-0 last:pb-0">
-                  <Link to={`/jobs`} className="font-bold text-xs text-slate-900 dark:text-white hover:text-pro-600 line-clamp-1">
+                  <Link to={`/jobs`} className="font-bold text-xs text-white hover:text-pro-300 line-clamp-1">
                     {job.title}
                   </Link>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">{job.company?.name} · {job.location}</p>
+                  <p className="text-[11px] text-slate-400 line-clamp-1">{job.company?.name} · {job.location}</p>
                   <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                       {job.workMode}
                     </span>
-                    <Link to={`/jobs`} className="text-[10px] font-bold text-pro-600 dark:text-pro-400 hover:underline">
+                    <Link to={`/jobs`} className="text-[10px] font-bold text-pro-400 hover:underline">
                       Apply →
                     </Link>
                   </div>
@@ -353,58 +344,10 @@ const HomePage = () => {
               ))}
             </div>
           </div>
-
-          {/* People You May Know */}
-          {suggestedConnections.length > 0 && (
-            <div className="pro-card p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-pro-600 dark:text-pro-400" />
-                  <span>Suggested Peers</span>
-                </h4>
-                <Link to="/network" className="text-[11px] font-bold text-pro-600 dark:text-pro-400 hover:underline">
-                  Grow
-                </Link>
-              </div>
-
-              <div className="space-y-3">
-                {suggestedConnections.map((u) => {
-                  const p = u.profile || {};
-                  const name = p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Professional';
-                  return (
-                    <div key={u._id} className="flex items-start gap-2.5">
-                      <Avatar src={p.avatar} alt={name} size="sm" />
-                      <div className="overflow-hidden flex-1">
-                        <Link to={`/profile/${p._id || u._id}`} className="font-bold text-xs text-slate-900 dark:text-white hover:text-pro-600 truncate block">
-                          {name}
-                        </Link>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{p.headline}</p>
-                        <Link
-                          to="/network"
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-pro-600 dark:text-pro-400 hover:underline mt-1"
-                        >
-                          <span>Connect</span>
-                          <ArrowRight className="w-2.5 h-2.5" />
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Developed By Team Section (JOB RECOMMENDATIONS -> SUGGESTED PEERS -> DEVELOPED BY) */}
-          <DevelopedByWidget />
         </div>
       </div>
 
-      {/* Mobile Developed By Section */}
-      <div className="block lg:hidden mt-6">
-        <DevelopedByWidget />
-      </div>
-
-      {/* Company Insights & Performance Section */}
+      {/* Company Insights & Platform Performance */}
       <div className="mt-8">
         <CompanyInsightsDashboard />
       </div>
