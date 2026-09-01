@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import CinematicBackground from '../../components/layout/CinematicBackground';
 import CinematicNavbar from '../../components/layout/CinematicNavbar';
 import CinematicSocialFooter from '../../components/layout/CinematicSocialFooter';
-import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 
 const LoginPage = () => {
   const { login, isLoading, error } = useAuth();
@@ -111,22 +110,7 @@ const LoginPage = () => {
               </button>
             </form>
 
-            {/* OR Divider */}
-            <div className="relative flex items-center justify-center py-0.5">
-              <div className="border-t border-white/10 w-full" />
-              <span className="bg-transparent px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
-                or
-              </span>
-              <div className="border-t border-white/10 w-full" />
-            </div>
-
-            {/* Continue with Google OAuth Button */}
-            <GoogleSignInButton
-              onSuccess={() => navigate(from, { replace: true })}
-              onError={(err) => setFormError(typeof err === 'string' ? err : 'Google sign-in was cancelled or failed.')}
-            />
-
-            <div className="pt-4 border-t border-white/10 text-center text-xs text-slate-400">
+            <div className="pt-3 border-t border-white/10 text-center text-xs text-slate-400">
               Don't have a CareerLink account?{' '}
               <Link to="/register" className="font-bold text-pro-400 hover:text-pro-300 hover:underline">
                 Join now
