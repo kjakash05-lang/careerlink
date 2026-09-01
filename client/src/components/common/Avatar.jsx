@@ -1,6 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
+
+const GRADIENTS = [
+  'from-pro-700 via-pro-600 to-indigo-600',
+  'from-teal-600 via-emerald-600 to-cyan-700',
+  'from-indigo-600 via-purple-600 to-pink-600',
+  'from-blue-600 via-sky-600 to-teal-600',
+  'from-violet-700 via-indigo-600 to-purple-800',
+  'from-rose-600 via-pink-600 to-amber-600',
+];
+
+const getGradientForName = (name) => {
+  if (!name) return GRADIENTS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % GRADIENTS.length;
+  return GRADIENTS[index];
+};
+
+const getInitials = (name) => {
+  if (!name || !name.trim()) return 'CL';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
 
 const Avatar = ({ src, alt = 'Avatar', size = 'md', className = '', online = false }) => {
+  const [imgError, setImgError] = useState(false);
+
   const sizeClasses = {
     xs: 'w-6 h-6 text-[10px]',
     sm: 'w-8 h-8 text-xs',
@@ -10,33 +40,23 @@ const Avatar = ({ src, alt = 'Avatar', size = 'md', className = '', online = fal
     '2xl': 'w-28 h-28 text-2xl',
   };
 
-  const getInitials = (name) => {
-    if (!name) return 'CL';
-    return name
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const initials = getInitials(alt);
+  const gradientClass = getGradientForName(alt);
 
   return (
     <div className={`relative inline-block shrink-0 ${className}`}>
-      {src ? (
+      {src && !imgError ? (
         <img
           src={src}
           alt={alt}
-          className={`${sizeClasses[size] || sizeClasses.md} rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs`}
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(alt)}&background=1d4ed8&color=fff`;
-          }}
+          className={`${sizeClasses[size] || sizeClasses.md} rounded-full object-cover border border-white/15 shadow-md`}
+          onError={() => setImgError(true)}
         />
       ) : (
         <div
-          className={`${sizeClasses[size] || sizeClasses.md} rounded-full bg-gradient-to-tr from-pro-700 via-pro-600 to-indigo-600 text-white font-extrabold flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs`}
+          className={`${sizeClasses[size] || sizeClasses.md} rounded-full bg-gradient-to-tr ${gradientClass} text-white font-extrabold flex items-center justify-center border border-white/20 shadow-md select-none tracking-wider`}
         >
-          {getInitials(alt)}
+          {initials}
         </div>
       )}
       {online && (

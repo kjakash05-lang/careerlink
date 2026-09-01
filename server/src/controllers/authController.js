@@ -68,8 +68,8 @@ exports.register = async (req, res, next) => {
       lastName,
       headline: headline || (assignedRole === 'recruiter' ? 'Talent Acquisition Specialist' : 'Professional'),
       location: location || '',
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(firstName + lastName)}`,
-      coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+      avatar: '',
+      coverImage: '',
     });
 
     // Link profile to user

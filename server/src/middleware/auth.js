@@ -20,7 +20,7 @@ const protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'prolink_super_secret_jwt_key_983724892374982374');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'careerlink_super_secret_jwt_key_983724892374982374');
     const user = await User.findById(decoded.id).populate('profile');
 
     if (!user || !user.isActive) {
@@ -40,6 +40,32 @@ const protect = async (req, res, next) => {
   }
 };
 
+// Optional auth: attaches req.user if valid token provided, but doesn't block unauthenticated requests
+const optionalAuth = async (req, res, next) => {
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'careerlink_super_secret_jwt_key_983724892374982374');
+    const user = await User.findById(decoded.id).populate('profile');
+    if (user && user.isActive) {
+      req.user = user;
+    }
+  } catch (err) {
+    // Ignore invalid token on optional routes
+  }
+  next();
+};
+
 // Grant access to specific roles strictly
 const authorize = (...roles) => {
   return (req, res, next) => {
@@ -53,4 +79,4 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+module.exports = { protect, optionalAuth, authorize };
