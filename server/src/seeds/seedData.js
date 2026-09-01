@@ -67,7 +67,163 @@ const usersData = [
       ],
     },
   },
-  // 1. Candidate - ML / Data Science
+  // 1. Team Member - Full Stack Developer
+  {
+    email: 'ajay.pk@example.com',
+    password: 'password123',
+    role: 'candidate',
+    profile: {
+      firstName: 'Ajay',
+      lastName: 'P K',
+      headline: 'Full Stack Software Engineer | React, Node.js, Express & Cloud Architecture',
+      about: 'Core developer on CareerLink. Building scalable web architectures, liquid-glass responsive UIs, and robust REST APIs.',
+      location: 'Bengaluru, India',
+      phone: '+91 98765 11223',
+      preferredWorkMode: 'Hybrid',
+      targetRoles: ['Full Stack Engineer', 'Software Developer'],
+      avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+      skills: [{ name: 'React' }, { name: 'Node.js' }, { name: 'Express' }, { name: 'MongoDB' }, { name: 'JavaScript' }, { name: 'Tailwind CSS' }],
+      experience: [
+        {
+          title: 'Full Stack Developer',
+          company: 'CareerLink Engineering',
+          location: 'Bengaluru, India',
+          startDate: '2023-01',
+          current: true,
+          employmentType: 'Full-time',
+          description: 'Developed real-time messaging, connection workflows, and cinematic interface modules.',
+        },
+      ],
+      education: [
+        {
+          school: 'Visvesvaraya Technological University',
+          degree: 'B.E. in Computer Science',
+          fieldOfStudy: 'Computer Science',
+          startDate: '2020',
+          endDate: '2024',
+        },
+      ],
+    },
+  },
+  // 2. Team Member - Cloud & Systems Architect
+  {
+    email: 'akash.kj@example.com',
+    password: 'password123',
+    role: 'candidate',
+    profile: {
+      firstName: 'Akash',
+      lastName: 'K J',
+      headline: 'Full Stack Developer & Systems Architect | React, Node.js, Socket.IO & MongoDB',
+      about: 'Lead architect on CareerLink. Specializing in high-performance web systems, real-time WebSockets, persistent analytics pipelines, and secure cloud deployments.',
+      location: 'Bengaluru, India',
+      phone: '+91 98765 22334',
+      preferredWorkMode: 'Remote',
+      targetRoles: ['Full Stack Engineer', 'Systems Architect', 'Lead Developer'],
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80',
+      skills: [{ name: 'React' }, { name: 'Node.js' }, { name: 'Socket.IO' }, { name: 'MongoDB' }, { name: 'TypeScript' }, { name: 'Cloud Architecture' }, { name: 'Docker' }],
+      experience: [
+        {
+          title: 'Systems & Full Stack Architect',
+          company: 'CareerLink Engineering',
+          location: 'Bengaluru, India',
+          startDate: '2023-01',
+          current: true,
+          employmentType: 'Full-time',
+          description: 'Architected end-to-end persistent social networking engine, real-time notifications, and analytics infrastructure.',
+        },
+      ],
+      education: [
+        {
+          school: 'Visvesvaraya Technological University',
+          degree: 'B.E. in Computer Science',
+          fieldOfStudy: 'Computer Science',
+          startDate: '2020',
+          endDate: '2024',
+        },
+      ],
+    },
+  },
+  // 3. Team Member - Backend & Distributed Systems
+  {
+    email: 'akshay.guptha@example.com',
+    password: 'password123',
+    role: 'candidate',
+    profile: {
+      firstName: 'Akshay Guptha',
+      lastName: 'L',
+      headline: 'Backend & Data Engineer | Node.js, Java, Microservices & Database Systems',
+      about: 'Core developer on CareerLink. Focused on database schema design, indexing strategies, API performance optimization, and search services.',
+      location: 'Bengaluru, India',
+      phone: '+91 98765 33445',
+      preferredWorkMode: 'Hybrid',
+      targetRoles: ['Backend Engineer', 'Database Specialist'],
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&auto=format&fit=crop&q=80',
+      skills: [{ name: 'Node.js' }, { name: 'Java' }, { name: 'MongoDB' }, { name: 'REST APIs' }, { name: 'SQL' }],
+      experience: [
+        {
+          title: 'Backend Engineer',
+          company: 'CareerLink Engineering',
+          location: 'Bengaluru, India',
+          startDate: '2023-01',
+          current: true,
+          employmentType: 'Full-time',
+          description: 'Built scalable backend routes, database aggregations, and recruiter ATS endpoints.',
+        },
+      ],
+      education: [
+        {
+          school: 'Visvesvaraya Technological University',
+          degree: 'B.E. in Computer Science',
+          fieldOfStudy: 'Computer Science',
+          startDate: '2020',
+          endDate: '2024',
+        },
+      ],
+    },
+  },
+  // 4. Team Member - Frontend & UI/UX Specialist
+  {
+    email: 'akshay.ravi@example.com',
+    password: 'password123',
+    role: 'candidate',
+    profile: {
+      firstName: 'Akshay',
+      lastName: 'Ravi',
+      headline: 'Frontend & UI/UX Engineer | React, Tailwind CSS, Motion & Interactive Design',
+      about: 'Core developer on CareerLink. Creating dark cinematic design systems, interactive graphs, and fluid micro-animations.',
+      location: 'Bengaluru, India',
+      phone: '+91 98765 44556',
+      preferredWorkMode: 'Hybrid',
+      targetRoles: ['Frontend Engineer', 'UI/UX Developer'],
+      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80',
+      skills: [{ name: 'React' }, { name: 'Tailwind CSS' }, { name: 'Framer Motion' }, { name: 'UI/UX Design' }, { name: 'JavaScript' }],
+      experience: [
+        {
+          title: 'Frontend Engineer',
+          company: 'CareerLink Engineering',
+          location: 'Bengaluru, India',
+          startDate: '2023-01',
+          current: true,
+          employmentType: 'Full-time',
+          description: 'Engineered liquid-glass cards, responsive dashboards, and interactive match analytics widgets.',
+        },
+      ],
+      education: [
+        {
+          school: 'Visvesvaraya Technological University',
+          degree: 'B.E. in Computer Science',
+          fieldOfStudy: 'Computer Science',
+          startDate: '2020',
+          endDate: '2024',
+        },
+      ],
+    },
+  },
+  // 5. Candidate - ML / Data Science
   {
     email: 'priya.sharma@example.com',
     password: 'password123',
@@ -360,8 +516,10 @@ const usersData = [
 
 const seedDatabase = async () => {
   try {
-    console.log('[Seed] Connecting to MongoDB...');
-    await connectDB();
+    if (mongoose.connection.readyState !== 1) {
+      console.log('[Seed] Connecting to MongoDB...');
+      await connectDB();
+    }
 
     console.log('[Seed] Clearing existing database collections...');
     await User.deleteMany({});

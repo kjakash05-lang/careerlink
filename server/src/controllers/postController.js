@@ -3,6 +3,25 @@ const Comment = require('../models/Comment');
 const Profile = require('../models/Profile');
 const Notification = require('../models/Notification');
 
+// Helper to create and emit real-time notification
+const sendNotification = async (req, notifData) => {
+  try {
+    const notif = await Notification.create(notifData);
+    const populated = await Notification.findById(notif._id).populate({
+      path: 'sender',
+      select: 'email role',
+      populate: { path: 'profile', select: 'firstName lastName headline avatar' },
+    });
+    const io = req.app.get('io');
+    if (io && notifData.recipient) {
+      io.to(notifData.recipient.toString()).emit('new_notification', populated);
+    }
+    return populated;
+  } catch (err) {
+    console.warn('Notification error:', err.message);
+  }
+};
+
 // @desc    Create a new post
 // @route   POST /api/posts
 // @access  Private
@@ -24,8 +43,13 @@ exports.createPost = async (req, res, next) => {
     const populatedPost = await Post.findById(post._id).populate({
       path: 'author',
       select: 'email role',
-      populate: { path: 'profile', select: 'firstName lastName headline avatar' },
+      populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_feed_post', populatedPost);
+    }
 
     res.status(201).json({ success: true, post: populatedPost });
   } catch (err) {
@@ -44,7 +68,7 @@ exports.repostPost = async (req, res, next) => {
     const originalPost = await Post.findById(originalPostId).populate({
       path: 'author',
       select: 'email role',
-      populate: { path: 'profile', select: 'firstName lastName headline avatar' },
+      populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
     });
 
     if (!originalPost) {
@@ -52,9 +76,9 @@ exports.repostPost = async (req, res, next) => {
     }
 
     // Check if user already directly reposted without thoughts
-    const hasAlreadyDirectlyReposted = !commentary && originalPost.reposts?.some(
-      (id) => id.toString() === req.user.id.toString()
-    );
+    const hasAlreadyDirectlyReposted =
+      !commentary &&
+      originalPost.reposts?.some((id) => id.toString() === req.user.id.toString());
 
     if (hasAlreadyDirectlyReposted) {
       return res.status(400).json({
@@ -95,48 +119,59 @@ exports.repostPost = async (req, res, next) => {
         },
       });
 
-    // Send notification to original post author if not self
+    // Send real-time notification to original post author if not self
     if (originalPost.author && originalPost.author._id.toString() !== req.user.id.toString()) {
       const reposterProfile = await Profile.findOne({ user: req.user.id });
       const reposterName = reposterProfile ? reposterProfile.fullName : 'Someone';
-      await Notification.create({
+
+      await sendNotification(req, {
         recipient: originalPost.author._id,
         sender: req.user.id,
-        type: 'post_like', // or repost notification
+        type: 'post_repost',
         title: 'Your post was reposted',
-        message: `${reposterName} reposted your post on CareerLink.`,
-        data: { postId: originalPost._id, repostId: newPost._id },
+        message: `${reposterName} reposted your post: "${originalPost.content ? originalPost.content.slice(0, 45) : ''}..."`,
+        data: { postId: newPost._id, originalPostId: originalPost._id },
       });
     }
 
-    const postObj = populatedRepost.toObject();
-    postObj.comments = [];
-    postObj.likesCount = 0;
-    postObj.repostsCount = 0;
-    postObj.isLiked = false;
-    postObj.isSaved = false;
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_feed_post', populatedRepost);
+      io.emit('post_repost_count_updated', {
+        postId: originalPost._id,
+        repostsCount: originalPost.reposts.length,
+      });
+    }
 
     res.status(201).json({
       success: true,
       message: 'Post reposted successfully.',
-      post: postObj,
-      originalRepostsCount: originalPost.reposts.length,
+      post: populatedRepost,
+      originalPostRepostsCount: originalPost.reposts.length,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Get all feed posts
+// @desc    Get all feed posts (with pagination, comments, likes)
 // @route   GET /api/posts
 // @access  Public / Private
 exports.getPosts = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
+    const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const posts = await Post.find()
+    const query = {};
+    if (req.query.author) {
+      query.author = req.query.author;
+    }
+    if (req.query.company) {
+      query.company = req.query.company;
+    }
+
+    const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -153,10 +188,7 @@ exports.getPosts = async (req, res, next) => {
           populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
         },
       })
-      .populate({
-        path: 'company',
-        select: 'name logo location industry',
-      });
+      .populate('company', 'name logo location industry');
 
     // Populate comments for each post
     const postsWithComments = await Promise.all(
@@ -173,13 +205,17 @@ exports.getPosts = async (req, res, next) => {
         postObj.comments = comments;
         postObj.likesCount = post.likes ? post.likes.length : 0;
         postObj.repostsCount = post.reposts ? post.reposts.length : 0;
-        postObj.isLiked = req.user ? post.likes.some((id) => id.toString() === req.user.id.toString()) : false;
-        postObj.isSaved = req.user ? post.savedBy.some((id) => id.toString() === req.user.id.toString()) : false;
+        postObj.isLiked = req.user
+          ? post.likes.some((id) => id.toString() === req.user.id.toString())
+          : false;
+        postObj.isSaved = req.user
+          ? post.savedBy.some((id) => id.toString() === req.user.id.toString())
+          : false;
         return postObj;
       })
     );
 
-    const total = await Post.countDocuments();
+    const total = await Post.countDocuments(query);
 
     res.status(200).json({
       success: true,
@@ -231,8 +267,12 @@ exports.getPostById = async (req, res, next) => {
     postObj.comments = comments;
     postObj.likesCount = post.likes ? post.likes.length : 0;
     postObj.repostsCount = post.reposts ? post.reposts.length : 0;
-    postObj.isLiked = req.user ? post.likes.some((id) => id.toString() === req.user.id.toString()) : false;
-    postObj.isSaved = req.user ? post.savedBy.some((id) => id.toString() === req.user.id.toString()) : false;
+    postObj.isLiked = req.user
+      ? post.likes.some((id) => id.toString() === req.user.id.toString())
+      : false;
+    postObj.isSaved = req.user
+      ? post.savedBy.some((id) => id.toString() === req.user.id.toString())
+      : false;
 
     res.status(200).json({ success: true, post: postObj });
   } catch (err) {
@@ -305,21 +345,33 @@ exports.likePost = async (req, res, next) => {
     } else {
       post.likes.push(req.user.id);
 
-      // Notify post author if not liking own post
+      // Notify post author in real-time if not liking own post
       if (post.author.toString() !== req.user.id.toString()) {
         const likerProfile = await Profile.findOne({ user: req.user.id });
-        await Notification.create({
+        const likerName = likerProfile ? likerProfile.fullName : 'Someone';
+
+        await sendNotification(req, {
           recipient: post.author,
           sender: req.user.id,
           type: 'post_like',
           title: 'New Like on your post',
-          message: `${likerProfile ? likerProfile.fullName : 'Someone'} liked your post.`,
+          message: `${likerName} liked your post.`,
           data: { postId: post._id },
         });
       }
     }
 
     await post.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('post_likes_updated', {
+        postId: post._id,
+        likesCount: post.likes.length,
+        userId: req.user.id,
+        liked: !isLiked,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -391,13 +443,23 @@ exports.addComment = async (req, res, next) => {
     // Send notification to post author if not own post
     if (post.author.toString() !== req.user.id.toString()) {
       const commenterProfile = await Profile.findOne({ user: req.user.id });
-      await Notification.create({
+      const commenterName = commenterProfile ? commenterProfile.fullName : 'Someone';
+
+      await sendNotification(req, {
         recipient: post.author,
         sender: req.user.id,
         type: 'post_comment',
         title: 'New Comment on your post',
-        message: `${commenterProfile ? commenterProfile.fullName : 'Someone'} commented: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`,
+        message: `${commenterName} commented: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`,
         data: { postId: post._id, commentId: comment._id },
+      });
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_comment_added', {
+        postId: post._id,
+        comment: populatedComment,
       });
     }
 

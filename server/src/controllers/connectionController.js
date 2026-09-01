@@ -3,6 +3,64 @@ const User = require('../models/User');
 const Profile = require('../models/Profile');
 const Notification = require('../models/Notification');
 
+// Helper to create and emit real-time notification
+const sendNotification = async (req, notifData) => {
+  try {
+    const notif = await Notification.create(notifData);
+    const populated = await Notification.findById(notif._id).populate({
+      path: 'sender',
+      select: 'email role',
+      populate: { path: 'profile', select: 'firstName lastName headline avatar' },
+    });
+    const io = req.app.get('io');
+    if (io && notifData.recipient) {
+      io.to(notifData.recipient.toString()).emit('new_notification', populated);
+    }
+    return populated;
+  } catch (err) {
+    console.warn('Notification error:', err.message);
+  }
+};
+
+// @desc    Get relationship status with a specific user
+// @route   GET /api/connections/status/:userId
+// @access  Private
+exports.getConnectionStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (userId === req.user.id.toString()) {
+      return res.status(200).json({ success: true, status: 'SELF' });
+    }
+
+    const connection = await Connection.findOne({
+      $or: [
+        { requester: req.user.id, recipient: userId },
+        { requester: userId, recipient: req.user.id },
+      ],
+    });
+
+    if (!connection) {
+      return res.status(200).json({ success: true, status: 'NONE' });
+    }
+
+    if (connection.status === 'accepted') {
+      return res.status(200).json({ success: true, status: 'CONNECTED', connectionId: connection._id });
+    }
+
+    if (connection.status === 'pending') {
+      if (connection.requester.toString() === req.user.id.toString()) {
+        return res.status(200).json({ success: true, status: 'PENDING_SENT', connectionId: connection._id });
+      } else {
+        return res.status(200).json({ success: true, status: 'PENDING_RECEIVED', connectionId: connection._id });
+      }
+    }
+
+    return res.status(200).json({ success: true, status: 'NONE' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // @desc    Send connection request
 // @route   POST /api/connections/request/:recipientId
 // @access  Private
@@ -27,6 +85,9 @@ exports.sendRequest = async (req, res, next) => {
       ],
     });
 
+    const senderProfile = await Profile.findOne({ user: req.user.id });
+    const senderName = senderProfile ? senderProfile.fullName : 'Someone';
+
     if (existing) {
       if (existing.status === 'accepted') {
         return res.status(400).json({ success: false, message: 'You are already connected with this user.' });
@@ -40,16 +101,20 @@ exports.sendRequest = async (req, res, next) => {
       existing.status = 'pending';
       await existing.save();
 
-      // Create notification
-      const senderProfile = await Profile.findOne({ user: req.user.id });
-      await Notification.create({
+      // Create & emit real-time notification
+      await sendNotification(req, {
         recipient: recipientId,
         sender: req.user.id,
         type: 'connection_request',
         title: 'New Connection Request',
-        message: `${senderProfile ? senderProfile.fullName : 'Someone'} sent you a connection request.`,
+        message: `${senderName} sent you a connection request.`,
         data: { connectionId: existing._id },
       });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(recipientId.toString()).emit('connection_updated', { type: 'REQUEST_RECEIVED', connection: existing });
+      }
 
       return res.status(200).json({ success: true, message: 'Connection request sent.', connection: existing });
     }
@@ -60,15 +125,19 @@ exports.sendRequest = async (req, res, next) => {
       status: 'pending',
     });
 
-    const senderProfile = await Profile.findOne({ user: req.user.id });
-    await Notification.create({
+    await sendNotification(req, {
       recipient: recipientId,
       sender: req.user.id,
       type: 'connection_request',
       title: 'New Connection Request',
-      message: `${senderProfile ? senderProfile.fullName : 'Someone'} sent you a connection request.`,
+      message: `${senderName} sent you a connection request.`,
       data: { connectionId: connection._id },
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(recipientId.toString()).emit('connection_updated', { type: 'REQUEST_RECEIVED', connection });
+    }
 
     res.status(201).json({ success: true, message: 'Connection request sent.', connection });
   } catch (err) {
@@ -94,16 +163,25 @@ exports.acceptRequest = async (req, res, next) => {
     connection.status = 'accepted';
     await connection.save();
 
-    // Send notification to requester
     const accepterProfile = await Profile.findOne({ user: req.user.id });
-    await Notification.create({
+    const accepterName = accepterProfile ? accepterProfile.fullName : 'Someone';
+
+    // Send notification to requester
+    await sendNotification(req, {
       recipient: connection.requester,
       sender: req.user.id,
       type: 'connection_accepted',
       title: 'Connection Accepted',
-      message: `${accepterProfile ? accepterProfile.fullName : 'Someone'} accepted your connection request.`,
+      message: `${accepterName} accepted your connection request.`,
       data: { connectionId: connection._id },
     });
+
+    // Notify both users in real-time
+    const io = req.app.get('io');
+    if (io) {
+      io.to(connection.requester.toString()).emit('connection_updated', { type: 'REQUEST_ACCEPTED', connection });
+      io.to(connection.recipient.toString()).emit('connection_updated', { type: 'REQUEST_ACCEPTED', connection });
+    }
 
     res.status(200).json({ success: true, message: 'Connection request accepted.', connection });
   } catch (err) {
@@ -148,7 +226,14 @@ exports.cancelRequest = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to cancel this request.' });
     }
 
+    const recipientId = connection.recipient.toString();
     await connection.deleteOne();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(recipientId).emit('connection_updated', { type: 'REQUEST_CANCELLED', connectionId: req.params.id });
+    }
+
     res.status(200).json({ success: true, message: 'Connection request cancelled.' });
   } catch (err) {
     next(err);
@@ -174,6 +259,12 @@ exports.removeConnection = async (req, res, next) => {
     }
 
     await connection.deleteOne();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(userId).emit('connection_updated', { type: 'CONNECTION_REMOVED', userId: req.user.id });
+    }
+
     res.status(200).json({ success: true, message: 'Connection removed.' });
   } catch (err) {
     next(err);
@@ -192,24 +283,26 @@ exports.getMyConnections = async (req, res, next) => {
       .populate({
         path: 'requester',
         select: 'email role',
-        populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
+        populate: { path: 'profile', select: 'firstName lastName headline avatar location skills' },
       })
       .populate({
         path: 'recipient',
         select: 'email role',
-        populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
+        populate: { path: 'profile', select: 'firstName lastName headline avatar location skills' },
       });
 
     // Map to connected user objects
-    const connectedUsers = connections.map((conn) => {
-      const isRequester = conn.requester._id.toString() === req.user.id.toString();
-      const otherUser = isRequester ? conn.recipient : conn.requester;
-      return {
-        connectionId: conn._id,
-        connectedAt: conn.updatedAt,
-        user: otherUser,
-      };
-    });
+    const connectedUsers = connections
+      .filter((conn) => conn.requester && conn.recipient)
+      .map((conn) => {
+        const isRequester = conn.requester._id.toString() === req.user.id.toString();
+        const otherUser = isRequester ? conn.recipient : conn.requester;
+        return {
+          connectionId: conn._id,
+          connectedAt: conn.updatedAt,
+          user: otherUser,
+        };
+      });
 
     res.status(200).json({ success: true, count: connectedUsers.length, connections: connectedUsers });
   } catch (err) {
@@ -267,13 +360,16 @@ exports.getSuggestions = async (req, res, next) => {
       ),
     ];
 
-    // Find up to 12 potential connections
+    // Find up to 16 potential connections from real database users
     const users = await User.find({ _id: { $nin: excludedUserIds }, isActive: true })
-      .limit(12)
+      .limit(16)
       .populate('profile', 'firstName lastName headline avatar location skills')
       .select('email role');
 
-    res.status(200).json({ success: true, count: users.length, suggestions: users });
+    // Filter only users who have a valid profile
+    const validSuggestions = users.filter((u) => u.profile);
+
+    res.status(200).json({ success: true, count: validSuggestions.length, suggestions: validSuggestions });
   } catch (err) {
     next(err);
   }

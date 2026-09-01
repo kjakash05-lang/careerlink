@@ -8,6 +8,7 @@ const {
   getMyConnections,
   getPendingRequests,
   getSuggestions,
+  getConnectionStatus,
 } = require('../controllers/connectionController');
 const { protect } = require('../middleware/auth');
 
@@ -18,6 +19,7 @@ router.use(protect);
 router.get('/', getMyConnections);
 router.get('/pending', getPendingRequests);
 router.get('/suggestions', getSuggestions);
+router.get('/status/:userId', getConnectionStatus);
 router.post('/request/:recipientId', sendRequest);
 router.put('/:id/accept', acceptRequest);
 router.put('/:id/reject', rejectRequest);

@@ -69,6 +69,7 @@ export const connectionService = {
   getMyConnections: () => api.get('/connections'),
   getPendingRequests: () => api.get('/connections/pending'),
   getSuggestions: () => api.get('/connections/suggestions'),
+  getConnectionStatus: (userId) => api.get(`/connections/status/${userId}`),
   sendRequest: (userId) => api.post(`/connections/request/${userId}`),
   acceptRequest: (connectionId) => api.put(`/connections/${connectionId}/accept`),
   rejectRequest: (connectionId) => api.put(`/connections/${connectionId}/reject`),

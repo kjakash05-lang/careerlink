@@ -224,6 +224,38 @@ exports.googleAuth = async (req, res, next) => {
   }
 };
 
+// @desc    Switch account / Quick demo login
+// @route   POST /api/auth/demo-login
+// @access  Public
+exports.demoLogin = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    let email = 'alex.rivera@example.com';
+    if (role === 'recruiter') email = 'elena.rostova@example.com';
+    else if (role === 'candidate_ml') email = 'priya.sharma@example.com';
+    else if (role === 'candidate_java') email = 'rahul.mehta@example.com';
+    else if (role === 'recruiter_cloud') email = 'jason.reid@example.com';
+    else if (role === 'admin') email = 'admin@prolink.com';
+    else if (role === 'ajay') email = 'ajay.pk@example.com';
+    else if (role === 'akash') email = 'akash.kj@example.com';
+    else if (role === 'akshay_g') email = 'akshay.guptha@example.com';
+    else if (role === 'akshay_r') email = 'akshay.ravi@example.com';
+
+    let user = await User.findOne({ email }).populate('profile');
+    if (!user) {
+      user = await User.findOne().populate('profile');
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    sendTokenResponse(user, user.profile, 200, res);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // @desc    Get current authenticated user & profile
 // @route   GET /api/auth/me
 // @access  Private
