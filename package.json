@@ -4,6 +4,7 @@
   "description": "CareerLink — Full-Stack Professional Networking & Recruitment Platform. Connect. Grow. Get Hired.",
   "main": "server/src/server.js",
   "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",

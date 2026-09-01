@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, User, Briefcase, ArrowRight, Loader2, Lock, Mail } from 'lucide-react';
+import { ArrowRight, Loader2, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import CinematicBackground from '../../components/layout/CinematicBackground';
 import CinematicNavbar from '../../components/layout/CinematicNavbar';
@@ -8,7 +8,7 @@ import CinematicSocialFooter from '../../components/layout/CinematicSocialFooter
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 
 const LoginPage = () => {
-  const { login, demoLogin, isLoading, error } = useAuth();
+  const { login, isLoading, error } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -26,13 +26,6 @@ const LoginPage = () => {
       navigate(from, { replace: true });
     } else {
       setFormError(res.message);
-    }
-  };
-
-  const handleQuickDemo = async (role) => {
-    const res = await demoLogin(role);
-    if (res.success) {
-      navigate(from, { replace: true });
     }
   };
 
@@ -58,44 +51,6 @@ const LoginPage = () => {
             <p className="text-xs sm:text-sm text-slate-300 font-medium">
               Connect. Grow. Get Hired. Sign in to your account.
             </p>
-          </div>
-
-          {/* Instant Demo Accounts Liquid-Glass Section */}
-          <div className="liquid-glass p-4 rounded-3xl space-y-2.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-pro-300 uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Instant Demo Accounts</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('candidate')}
-                className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/12 border border-white/10 hover:border-pro-400/50 text-left text-xs transition-all group"
-              >
-                <div className="w-7 h-7 rounded-xl bg-pro-600/30 border border-pro-400/30 flex items-center justify-center text-pro-300 shrink-0 group-hover:scale-110 transition-transform">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="font-bold text-white group-hover:text-pro-300 truncate">Alex (Candidate)</p>
-                  <p className="text-[10px] text-slate-400 truncate">Senior Full Stack</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('recruiter')}
-                className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/5 hover:bg-white/12 border border-white/10 hover:border-indigo-400/50 text-left text-xs transition-all group"
-              >
-                <div className="w-7 h-7 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0 group-hover:scale-110 transition-transform">
-                  <Briefcase className="w-3.5 h-3.5" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="font-bold text-white group-hover:text-indigo-300 truncate">Elena (Recruiter)</p>
-                  <p className="text-[10px] text-slate-400 truncate">NovaTech Talent</p>
-                </div>
-              </button>
-            </div>
           </div>
 
           {/* Login Form Liquid-Glass Card */}
