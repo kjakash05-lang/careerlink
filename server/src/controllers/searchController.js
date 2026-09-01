@@ -3,6 +3,37 @@ const Company = require('../models/Company');
 const Job = require('../models/Job');
 const Post = require('../models/Post');
 
+// Helper to construct multi-field person search query
+const buildPersonQuery = (q) => {
+  const cleanQ = q.trim();
+  const tokens = cleanQ.split(/\s+/).filter(Boolean);
+  const regex = new RegExp(cleanQ, 'i');
+
+  const orConditions = [
+    { firstName: regex },
+    { lastName: regex },
+    { headline: regex },
+    { location: regex },
+    { username: regex },
+    { 'skills.name': regex },
+  ];
+
+  // If multi-word query (e.g. "Akash K J" or "Keerthana D")
+  if (tokens.length >= 2) {
+    const firstWordRegex = new RegExp(tokens[0], 'i');
+    const restWordRegex = new RegExp(tokens.slice(1).join(' '), 'i');
+
+    orConditions.push({
+      $and: [
+        { $or: [{ firstName: firstWordRegex }, { lastName: firstWordRegex }] },
+        { $or: [{ firstName: restWordRegex }, { lastName: restWordRegex }] },
+      ],
+    });
+  }
+
+  return { $or: orConditions };
+};
+
 // @desc    Global search across People, Companies, Jobs, and Posts
 // @route   GET /api/search
 // @access  Public / Private
@@ -26,16 +57,9 @@ exports.searchGlobal = async (req, res, next) => {
     let posts = [];
 
     if (searchType === 'all' || searchType === 'people') {
-      people = await Profile.find({
-        $or: [
-          { firstName: regex },
-          { lastName: regex },
-          { headline: regex },
-          { location: regex },
-          { 'skills.name': regex },
-        ],
-      })
-        .limit(10)
+      const personQuery = buildPersonQuery(q);
+      people = await Profile.find(personQuery)
+        .limit(12)
         .populate('user', 'email role');
     }
 
@@ -62,7 +86,7 @@ exports.searchGlobal = async (req, res, next) => {
         .populate({
           path: 'author',
           select: 'email role',
-          populate: { path: 'profile', select: 'firstName lastName headline avatar' },
+          populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
         });
     }
 
@@ -75,6 +99,33 @@ exports.searchGlobal = async (req, res, next) => {
         jobs,
         posts,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Dedicated User / People search endpoint
+// @route   GET /api/users/search or GET /api/search/users
+// @access  Public / Private
+exports.searchUsers = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || !q.trim()) {
+      return res.status(200).json({ success: true, count: 0, users: [] });
+    }
+
+    const personQuery = buildPersonQuery(q);
+    const people = await Profile.find(personQuery)
+      .limit(15)
+      .populate('user', 'email role createdAt');
+
+    res.status(200).json({
+      success: true,
+      query: q,
+      count: people.length,
+      users: people,
     });
   } catch (err) {
     next(err);

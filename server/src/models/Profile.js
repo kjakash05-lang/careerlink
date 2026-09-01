@@ -7,6 +7,7 @@ const EducationSchema = new mongoose.Schema({
   startDate: { type: String },
   endDate: { type: String },
   current: { type: Boolean, default: false },
+  grade: { type: String },
   description: { type: String },
 });
 
@@ -75,6 +76,13 @@ const ProfileSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
       unique: true,
+    },
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
     },
     firstName: {
       type: String,
@@ -179,8 +187,21 @@ ProfileSchema.virtual('completionPercentage').get(function () {
   return Math.min(score, 100);
 });
 
+// Auto-generate username slug if not defined
+ProfileSchema.pre('save', function (next) {
+  if (!this.username && this.firstName && this.lastName) {
+    const baseSlug = `${this.firstName}-${this.lastName}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+    this.username = `${baseSlug}`;
+  }
+  next();
+});
+
 // Text index for search
 ProfileSchema.index({
+  username: 1,
   firstName: 'text',
   lastName: 'text',
   headline: 'text',

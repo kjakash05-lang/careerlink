@@ -1,20 +1,31 @@
+const mongoose = require('mongoose');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { uploadFile, deleteFile } = require('../utils/cloudinary');
 
-// @desc    Get profile by user ID or profile ID
+// @desc    Get profile by user ID, profile ID, or public username slug
 // @route   GET /api/profile/:id
 // @access  Public / Private
 exports.getProfile = async (req, res, next) => {
   try {
-    let profile = await Profile.findById(req.params.id)
-      .populate('user', 'email role createdAt')
-      .populate('skills.endorsements.user', 'email profile');
+    const { id } = req.params;
+    let profile = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      profile = await Profile.findById(id)
+        .populate('user', 'email role createdAt')
+        .populate('skills.endorsements.user', 'email profile');
+
+      if (!profile) {
+        profile = await Profile.findOne({ user: id })
+          .populate('user', 'email role createdAt')
+          .populate('skills.endorsements.user', 'email profile');
+      }
+    }
 
     if (!profile) {
-      // Try searching by user ObjectId
-      profile = await Profile.findOne({ user: req.params.id })
+      profile = await Profile.findOne({ username: id.toLowerCase() })
         .populate('user', 'email role createdAt')
         .populate('skills.endorsements.user', 'email profile');
     }
