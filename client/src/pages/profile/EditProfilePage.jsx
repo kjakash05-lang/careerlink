@@ -1,22 +1,82 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Save,
   Plus,
   Trash2,
-  Upload,
-  FileText,
-  Briefcase,
   GraduationCap,
   Award,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
+  Camera,
+  UploadCloud,
+  Check,
+  Loader2,
+  Code,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { profileService, uploadService } from '../../services/api';
+import { profileService } from '../../services/api';
 import Modal from '../../components/common/Modal';
+import Avatar from '../../components/common/Avatar';
+
+// Curated Default Preset Avatars Gallery
+const PRESET_AVATARS = [
+  {
+    name: 'Tech Architect',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Full Stack Engineer',
+    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Systems Developer',
+    url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Backend Specialist',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'UI/UX Engineer',
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Engineering Lead',
+    url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80',
+  },
+];
+
+// Curated Default Preset Cover Banners Gallery
+const PRESET_BANNERS = [
+  {
+    name: 'Liquid Glass Tech',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Cyber Neon Glow',
+    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Deep Indigo Space',
+    url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Minimal Modernist',
+    url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Silicon Circuitry',
+    url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Matrix Code Grid',
+    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80',
+  },
+];
 
 const EditProfilePage = () => {
   const { user, profile, updateProfileState } = useAuth();
@@ -27,32 +87,13 @@ const EditProfilePage = () => {
   const [firstName, setFirstName] = useState(profile?.firstName || '');
   const [lastName, setLastName] = useState(profile?.lastName || '');
   const [headline, setHeadline] = useState(profile?.headline || '');
-  const [about, setAbout] = useState(profile?.about || '');
   const [location, setLocation] = useState(profile?.location || '');
   const [phone, setPhone] = useState(profile?.phone || '');
-  const [preferredWorkMode, setPreferredWorkMode] = useState(profile?.preferredWorkMode || 'Any');
-  const [targetRoles, setTargetRoles] = useState((profile?.targetRoles || []).join(', '));
   const [isSaving, setIsSaving] = useState(false);
-
-  // Resume State
-  const [resume, setResume] = useState(profile?.resume || null);
-  const [isUploadingResume, setIsUploadingResume] = useState(false);
 
   // Skills State
   const [skills, setSkills] = useState(profile?.skills || []);
   const [newSkillName, setNewSkillName] = useState('');
-
-  // Experience Modal & State
-  const [experiences, setExperiences] = useState(profile?.experience || []);
-  const [expModalOpen, setExpModalOpen] = useState(false);
-  const [expTitle, setExpTitle] = useState('');
-  const [expCompany, setExpCompany] = useState('');
-  const [expLocation, setExpLocation] = useState('');
-  const [expStartDate, setExpStartDate] = useState('');
-  const [expEndDate, setExpEndDate] = useState('');
-  const [expCurrent, setExpCurrent] = useState(false);
-  const [expDescription, setExpDescription] = useState('');
-  const [expType, setExpType] = useState('Full-time');
 
   // Education Modal & State
   const [educations, setEducations] = useState(profile?.education || []);
@@ -62,21 +103,27 @@ const EditProfilePage = () => {
   const [eduField, setEduField] = useState('');
   const [eduStartDate, setEduStartDate] = useState('');
   const [eduEndDate, setEduEndDate] = useState('');
-  const [eduDescription, setEduDescription] = useState('');
+  const [eduGrade, setEduGrade] = useState('');
+
+  // Photo & Banner Modals
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [coverModalOpen, setCoverModalOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [selectedPresetUrl, setSelectedPresetUrl] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const avatarInputRef = useRef(null);
+  const coverInputRef = useRef(null);
 
   useEffect(() => {
     if (profile) {
       setFirstName(profile.firstName || '');
       setLastName(profile.lastName || '');
       setHeadline(profile.headline || '');
-      setAbout(profile.about || '');
       setLocation(profile.location || '');
       setPhone(profile.phone || '');
-      setPreferredWorkMode(profile.preferredWorkMode || 'Any');
-      setTargetRoles((profile.targetRoles || []).join(', '));
-      setResume(profile.resume || null);
       setSkills(profile.skills || []);
-      setExperiences(profile.experience || []);
       setEducations(profile.education || []);
     }
   }, [profile]);
@@ -89,161 +136,190 @@ const EditProfilePage = () => {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         headline: headline.trim(),
-        about: about.trim(),
         location: location.trim(),
         phone: phone.trim(),
-        preferredWorkMode,
-        targetRoles: targetRoles.split(',').map((r) => r.trim()).filter(Boolean),
       };
 
       const res = await profileService.updateProfile(payload);
       if (res.success && res.profile) {
         updateProfileState(res.profile);
-        showToast('Profile basic info updated successfully!', 'success');
+        showToast('Profile information saved successfully!', 'success');
       }
     } catch (err) {
-      showToast(err.message || 'Failed to update profile', 'error');
+      showToast(err.message || 'Failed to update profile info', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleResumeUpload = async (e) => {
+  // Avatar Management
+  const handleAvatarFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      showToast('Please select a valid PDF file for your resume', 'error');
+    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+      showToast('Please select a JPG, PNG, or WebP image.', 'error');
       return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File size must be under 5MB.', 'error');
+      return;
+    }
+    setUploadFile(file);
+    setSelectedPresetUrl(null);
+    setPreviewImage(URL.createObjectURL(file));
+  };
 
-    const formData = new FormData();
-    formData.append('resume', file);
+  const handleSelectPresetAvatar = (url) => {
+    setSelectedPresetUrl(url);
+    setUploadFile(null);
+    setPreviewImage(url);
+  };
 
-    setIsUploadingResume(true);
+  const handleSaveAvatar = async () => {
+    setIsUploading(true);
     try {
-      const res = await profileService.uploadResume(formData);
-      if (res.success && res.resume) {
-        setResume(res.resume);
-        updateProfileState(res.profile);
-        showToast('Resume uploaded successfully!', 'success');
+      if (selectedPresetUrl) {
+        const res = await profileService.updateProfile({ avatar: selectedPresetUrl });
+        if (res.success && res.profile) {
+          updateProfileState(res.profile);
+          showToast('Profile photo updated from gallery!', 'success');
+          setAvatarModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+          setSelectedPresetUrl(null);
+        }
+      } else if (uploadFile) {
+        const formData = new FormData();
+        formData.append('avatar', uploadFile);
+        const res = await profileService.uploadAvatar(formData);
+        if (res.success && res.profile) {
+          updateProfileState(res.profile);
+          showToast('Profile photo uploaded!', 'success');
+          setAvatarModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+        }
       }
     } catch (err) {
-      showToast(err.message || 'Resume upload failed', 'error');
+      showToast(err.message || 'Failed to update avatar', 'error');
     } finally {
-      setIsUploadingResume(false);
+      setIsUploading(false);
     }
   };
 
-  const handleDeleteResume = async () => {
-    if (!window.confirm('Are you sure you want to delete your uploaded resume?')) return;
+  // Banner Management
+  const handleCoverFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+      showToast('Please select a JPG, PNG, or WebP image.', 'error');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      showToast('File size must be under 8MB.', 'error');
+      return;
+    }
+    setUploadFile(file);
+    setSelectedPresetUrl(null);
+    setPreviewImage(URL.createObjectURL(file));
+  };
+
+  const handleSelectPresetBanner = (url) => {
+    setSelectedPresetUrl(url);
+    setUploadFile(null);
+    setPreviewImage(url);
+  };
+
+  const handleSaveCover = async () => {
+    setIsUploading(true);
     try {
-      const res = await profileService.deleteResume();
-      if (res.success) {
-        setResume(null);
-        updateProfileState(res.profile);
-        showToast('Resume deleted', 'info');
+      if (selectedPresetUrl) {
+        const res = await profileService.updateProfile({ coverImage: selectedPresetUrl });
+        if (res.success && res.profile) {
+          updateProfileState(res.profile);
+          showToast('Cover banner updated from gallery!', 'success');
+          setCoverModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+          setSelectedPresetUrl(null);
+        }
+      } else if (uploadFile) {
+        const formData = new FormData();
+        formData.append('cover', uploadFile);
+        const res = await profileService.uploadCover(formData);
+        if (res.success && res.profile) {
+          updateProfileState(res.profile);
+          showToast('Cover banner uploaded!', 'success');
+          setCoverModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+        }
       }
     } catch (err) {
-      showToast(err.message || 'Could not delete resume', 'error');
+      showToast(err.message || 'Failed to update cover', 'error');
+    } finally {
+      setIsUploading(false);
     }
   };
 
+  // Skills Management
   const handleAddSkill = async (e) => {
     e.preventDefault();
     if (!newSkillName.trim()) return;
-
     try {
       const res = await profileService.addSkill(newSkillName.trim());
-      if (res.success && res.profile) {
-        setSkills(res.profile.skills);
-        updateProfileState(res.profile);
+      if (res.success && res.skills) {
+        setSkills(res.skills);
+        updateProfileState({ ...profile, skills: res.skills });
         setNewSkillName('');
-        showToast('Skill added!', 'success');
+        showToast(`Skill "${newSkillName.trim()}" added & reflected on your profile!`, 'success');
       }
     } catch (err) {
       showToast(err.message || 'Failed to add skill', 'error');
     }
   };
 
-  const handleRemoveSkill = async (skillId) => {
+  const handleDeleteSkill = async (skillId) => {
     try {
       const res = await profileService.removeSkill(skillId);
-      if (res.success && res.profile) {
-        setSkills(res.profile.skills);
-        updateProfileState(res.profile);
+      if (res.success && res.skills) {
+        setSkills(res.skills);
+        updateProfileState({ ...profile, skills: res.skills });
         showToast('Skill removed', 'info');
       }
     } catch (err) {
-      showToast(err.message || 'Could not remove skill', 'error');
+      showToast(err.message || 'Failed to delete skill', 'error');
     }
   };
 
-  const handleAddExperience = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        title: expTitle.trim(),
-        company: expCompany.trim(),
-        location: expLocation.trim(),
-        startDate: expStartDate,
-        endDate: expCurrent ? undefined : expEndDate,
-        current: expCurrent,
-        employmentType: expType,
-        description: expDescription.trim(),
-      };
-
-      const res = await profileService.addExperience(payload);
-      if (res.success && res.profile) {
-        setExperiences(res.profile.experience);
-        updateProfileState(res.profile);
-        setExpModalOpen(false);
-        setExpTitle('');
-        setExpCompany('');
-        setExpLocation('');
-        setExpDescription('');
-        showToast('Experience added!', 'success');
-      }
-    } catch (err) {
-      showToast(err.message || 'Failed to add experience', 'error');
-    }
-  };
-
-  const handleDeleteExperience = async (expId) => {
-    try {
-      const res = await profileService.deleteExperience(expId);
-      if (res.success && res.profile) {
-        setExperiences(res.profile.experience);
-        updateProfileState(res.profile);
-        showToast('Experience entry deleted', 'info');
-      }
-    } catch (err) {
-      showToast(err.message || 'Could not delete experience', 'error');
-    }
-  };
-
+  // Education Management
   const handleAddEducation = async (e) => {
     e.preventDefault();
+    if (!eduSchool.trim() || !eduDegree.trim()) {
+      showToast('School name and Degree are required.', 'error');
+      return;
+    }
+
     try {
-      const payload = {
+      const res = await profileService.addEducation({
         school: eduSchool.trim(),
         degree: eduDegree.trim(),
         fieldOfStudy: eduField.trim(),
-        startDate: eduStartDate,
-        endDate: eduEndDate,
-        description: eduDescription.trim(),
-      };
-
-      const res = await profileService.addEducation(payload);
-      if (res.success && res.profile) {
-        setEducations(res.profile.education);
-        updateProfileState(res.profile);
+        startDate: eduStartDate.trim(),
+        endDate: eduEndDate.trim(),
+        grade: eduGrade.trim(),
+      });
+      if (res.success && res.education) {
+        setEducations(res.education);
+        updateProfileState({ ...profile, education: res.education });
+        showToast('Education credential added!', 'success');
         setEduModalOpen(false);
         setEduSchool('');
         setEduDegree('');
         setEduField('');
-        setEduDescription('');
-        showToast('Education added!', 'success');
+        setEduStartDate('');
+        setEduEndDate('');
+        setEduGrade('');
       }
     } catch (err) {
       showToast(err.message || 'Failed to add education', 'error');
@@ -252,469 +328,611 @@ const EditProfilePage = () => {
 
   const handleDeleteEducation = async (eduId) => {
     try {
-      const res = await profileService.deleteEducation(eduId);
-      if (res.success && res.profile) {
-        setEducations(res.profile.education);
-        updateProfileState(res.profile);
-        showToast('Education entry deleted', 'info');
+      const res = await profileService.removeEducation(eduId);
+      if (res.success && res.education) {
+        setEducations(res.education);
+        updateProfileState({ ...profile, education: res.education });
+        showToast('Education entry removed', 'info');
       }
     } catch (err) {
-      showToast(err.message || 'Could not delete education', 'error');
+      showToast(err.message || 'Failed to remove education', 'error');
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header */}
+      {/* Top Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex items-center gap-3">
           <Link
-            to={`/profile/${profile?._id || user?.id}`}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-pro-600 hover:text-pro-700 mb-1"
+            to="/profile/me"
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Profile</span>
+            <ArrowLeft className="w-4 h-4" />
           </Link>
-          <h1 className="text-2xl font-extrabold text-slate-900">Edit Profile & Resume</h1>
+          <div>
+            <h1 className="text-2xl font-black text-white">Edit Profile</h1>
+            <p className="text-xs text-slate-300">
+              Customize your profile photo, cover banner, headlines, skills, and credentials.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          to="/profile/me"
+          className="pro-btn-secondary text-xs py-2 px-4"
+        >
+          View Public Profile
+        </Link>
+      </div>
+
+      {/* 1. Profile Visual Identity (Photo & Banner with Gallery Presets) */}
+      <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-5">
+        <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2 border-b border-white/10 pb-3">
+          <Camera className="w-4 h-4 text-pro-400" />
+          <span>Profile Photo & Cover Banner</span>
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Profile Photo Card */}
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
+            <Avatar src={profile?.avatar} alt={profile?.fullName} size="xl" />
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-white">Profile Photo</p>
+              <p className="text-[11px] text-slate-400">Choose from gallery presets or upload a photo.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadFile(null);
+                  setPreviewImage(null);
+                  setSelectedPresetUrl(null);
+                  setAvatarModalOpen(true);
+                }}
+                className="pro-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+              >
+                <Camera className="w-3.5 h-3.5 text-pro-400" />
+                <span>Change Photo</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Cover Banner Card */}
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+            <div className="h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 relative">
+              {profile?.coverImage ? (
+                <img src={profile.coverImage} alt="Cover" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[11px] text-slate-500">
+                  Default Banner
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-white">Cover Banner</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadFile(null);
+                  setPreviewImage(null);
+                  setSelectedPresetUrl(null);
+                  setCoverModalOpen(true);
+                }}
+                className="pro-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+              >
+                <Camera className="w-3.5 h-3.5 text-pro-400" />
+                <span>Change Banner</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 1. Basic Info Section */}
-      <div className="pro-card p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-4">Basic Information</h3>
-        <form onSubmit={handleSaveBasicInfo} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">First Name</label>
-              <input
-                type="text"
-                required
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="pro-input text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Last Name</label>
-              <input
-                type="text"
-                required
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="pro-input text-sm"
-              />
-            </div>
-          </div>
+      {/* 2. Basic Information Form */}
+      <form onSubmit={handleSaveBasicInfo} className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
+        <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2 border-b border-white/10 pb-3">
+          <span>Basic Information</span>
+        </h2>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Professional Headline</label>
+            <label className="block text-xs font-bold text-slate-200 mb-1">First Name *</label>
             <input
               type="text"
-              value={headline}
-              onChange={(e) => setHeadline(e.target.value)}
-              className="pro-input text-sm"
-              placeholder="e.g. Senior Full Stack Engineer | React, Node.js"
+              required
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="pro-input text-xs"
+              placeholder="e.g. Akash"
             />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Location</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="pro-input text-sm"
-                placeholder="e.g. San Francisco, CA"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="pro-input text-sm"
-                placeholder="e.g. +1 (555) 000-0000"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Work Mode</label>
-              <select
-                value={preferredWorkMode}
-                onChange={(e) => setPreferredWorkMode(e.target.value)}
-                className="pro-input text-sm"
-              >
-                <option value="Any">Any / Flexible</option>
-                <option value="Remote">Remote</option>
-                <option value="Hybrid">Hybrid</option>
-                <option value="On-site">On-site</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Target Roles (comma separated)</label>
-              <input
-                type="text"
-                value={targetRoles}
-                onChange={(e) => setTargetRoles(e.target.value)}
-                className="pro-input text-sm"
-                placeholder="e.g. Full Stack Engineer, Engineering Manager"
-              />
-            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">About Section</label>
-            <textarea
-              rows={4}
-              value={about}
-              onChange={(e) => setAbout(e.target.value)}
-              className="pro-input text-sm"
-              placeholder="Share a summary of your professional journey, technical expertise, and goals..."
+            <label className="block text-xs font-bold text-slate-200 mb-1">Last Name *</label>
+            <input
+              type="text"
+              required
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="pro-input text-xs"
+              placeholder="e.g. K J"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-200 mb-1">Professional Headline *</label>
+          <input
+            type="text"
+            required
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+            className="pro-input text-xs"
+            placeholder="e.g. Full Stack Developer | React & Node.js Engineer"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-200 mb-1">Location</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="pro-input text-xs"
+              placeholder="e.g. Bengaluru, Karnataka, India"
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-bold text-slate-200 mb-1">Phone Number</label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="pro-input text-xs"
+              placeholder="e.g. +91 9876543210"
+            />
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-white/10 flex justify-end">
           <button
             type="submit"
             disabled={isSaving}
-            className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5"
+            className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
           >
-            <Save className="w-4 h-4" />
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>{isSaving ? 'Saving...' : 'Save Basic Info'}</span>
           </button>
+        </div>
+      </form>
+
+      {/* 3. Skills Management (Reflected Directly Below Profile Picture) */}
+      <div id="skills" className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+              <Award className="w-4 h-4 text-pro-400" />
+              <span>Skills & Technologies</span>
+            </h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Skills you add here will immediately reflect directly under your profile photo.
+            </p>
+          </div>
+          <span className="text-xs font-bold text-pro-300">{skills.length} skills added</span>
+        </div>
+
+        {/* Add Skill Input */}
+        <form onSubmit={handleAddSkill} className="flex gap-2">
+          <input
+            type="text"
+            value={newSkillName}
+            onChange={(e) => setNewSkillName(e.target.value)}
+            placeholder="Add a new skill (e.g. React, Java, Docker, Python)..."
+            className="pro-input text-xs flex-1"
+          />
+          <button
+            type="submit"
+            disabled={!newSkillName.trim()}
+            className="pro-btn-primary text-xs py-2 px-4 flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Skill</span>
+          </button>
         </form>
-      </div>
 
-      {/* 2. PDF Resume Management */}
-      <div className="pro-card p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-3">Resume Document (PDF)</h3>
-
-        {resume && resume.url ? (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <FileText className="w-8 h-8 text-pro-600" />
-              <div>
-                <p className="text-sm font-bold text-slate-900">{resume.fileName || 'Resume.pdf'}</p>
-                <p className="text-xs text-slate-500">
-                  Uploaded: {resume.uploadDate ? new Date(resume.uploadDate).toLocaleDateString() : 'Active'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="cursor-pointer pro-btn-secondary text-xs py-1.5 px-3">
-                <span>Replace PDF</span>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleResumeUpload}
-                  className="hidden"
-                  disabled={isUploadingResume}
-                />
-              </label>
-              <button
-                onClick={handleDeleteResume}
-                className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                title="Delete Resume"
+        {/* Skill Chips */}
+        {skills.length > 0 ? (
+          <div className="flex flex-wrap gap-2 pt-2">
+            {skills.map((skill) => (
+              <div
+                key={skill._id || skill.name}
+                className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/15 text-xs text-white font-bold flex items-center gap-2 hover:border-pro-400/50 transition-all"
               >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+                <Code className="w-3.5 h-3.5 text-pro-400" />
+                <span>{skill.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSkill(skill._id)}
+                  className="text-slate-400 hover:text-rose-400 p-0.5 transition-colors"
+                  title="Remove skill"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-pro-400 transition-colors">
-            <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <h4 className="text-sm font-bold text-slate-700">Upload your PDF Resume</h4>
-            <p className="text-xs text-slate-500 mb-3">PDF format up to 10MB</p>
-            <label className="cursor-pointer pro-btn-primary text-xs py-2 px-4 inline-flex items-center gap-2">
-              <Upload className="w-4 h-4" />
-              <span>Select PDF Resume</span>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={handleResumeUpload}
-                className="hidden"
-                disabled={isUploadingResume}
-              />
-            </label>
-          </div>
+          <p className="text-xs text-slate-400 italic">No skills added yet.</p>
         )}
       </div>
 
-      {/* 3. Skills Manager */}
-      <div className="pro-card p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-3">Skills</h3>
-
-        <form onSubmit={handleAddSkill} className="flex gap-2 mb-4">
-          <input
-            type="text"
-            placeholder="Add a new skill (e.g. React, Node.js, Kubernetes)..."
-            value={newSkillName}
-            onChange={(e) => setNewSkillName(e.target.value)}
-            className="pro-input text-xs flex-1"
-          />
-          <button type="submit" className="pro-btn-primary text-xs py-2 px-4 flex items-center gap-1">
-            <Plus className="w-4 h-4" />
-            <span>Add</span>
-          </button>
-        </form>
-
-        <div className="flex flex-wrap gap-2">
-          {skills.map((skill) => (
-            <span
-              key={skill._id}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-800 rounded-lg text-xs font-semibold border border-slate-200"
-            >
-              <span>{skill.name}</span>
-              <button
-                onClick={() => handleRemoveSkill(skill._id)}
-                className="text-slate-400 hover:text-rose-600"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. Experience Timeline Manager */}
-      <div className="pro-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-slate-900">Work Experience</h3>
+      {/* 4. Education Background */}
+      <div id="education" className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-pro-400" />
+            <span>Education Background</span>
+          </h2>
           <button
-            onClick={() => setExpModalOpen(true)}
-            className="pro-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Experience</span>
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {experiences.map((exp) => (
-            <div key={exp._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">{exp.title}</h4>
-                <p className="text-xs text-slate-700">{exp.company} · {exp.employmentType || 'Full-time'}</p>
-                <p className="text-[11px] text-slate-400">{exp.startDate} – {exp.current ? 'Present' : exp.endDate}</p>
-              </div>
-              <button
-                onClick={() => handleDeleteExperience(exp._id)}
-                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 5. Education Manager */}
-      <div className="pro-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-slate-900">Education</h3>
-          <button
+            type="button"
             onClick={() => setEduModalOpen(true)}
             className="pro-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-pro-400" />
             <span>Add Education</span>
           </button>
         </div>
 
-        <div className="space-y-3">
-          {educations.map((edu) => (
-            <div key={edu._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">{edu.school}</h4>
-                <p className="text-xs text-slate-700">{edu.degree} {edu.fieldOfStudy ? `· ${edu.fieldOfStudy}` : ''}</p>
-                <p className="text-[11px] text-slate-400">{edu.startDate} – {edu.endDate}</p>
-              </div>
-              <button
-                onClick={() => handleDeleteEducation(edu._id)}
-                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
+        {educations.length > 0 ? (
+          <div className="space-y-3">
+            {educations.map((edu) => (
+              <div
+                key={edu._id}
+                className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 text-xs"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
+                <div>
+                  <h4 className="font-bold text-white text-sm">{edu.school}</h4>
+                  <p className="font-semibold text-slate-300">
+                    {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {edu.startDate} – {edu.endDate} {edu.grade ? `· Grade: ${edu.grade}` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteEducation(edu._id)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 italic">No education credentials added yet.</p>
+        )}
       </div>
 
-      {/* Experience Add Modal */}
-      <Modal isOpen={expModalOpen} onClose={() => setExpModalOpen(false)} title="Add Work Experience">
-        <form onSubmit={handleAddExperience} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Job Title</label>
+      {/* ======================================================== */}
+      {/* 5. AVATAR UPLOAD & GALLERY MODAL */}
+      {/* ======================================================== */}
+      <Modal
+        isOpen={avatarModalOpen}
+        onClose={() => setAvatarModalOpen(false)}
+        title="Choose Profile Picture"
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-5">
+          <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-2xl border border-white/10">
+            <div className="relative">
+              {previewImage ? (
+                <img
+                  src={previewImage}
+                  alt="Avatar preview"
+                  className="w-28 h-28 rounded-full object-cover border-4 border-pro-500 shadow-xl"
+                />
+              ) : (
+                <Avatar src={profile?.avatar} alt={profile?.fullName} size="2xl" className="w-28 h-28" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Select from default preset gallery or choose a photo from your device.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-pro-400" />
+              <span>Choose from Default Gallery</span>
+            </h4>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+              {PRESET_AVATARS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectPresetAvatar(preset.url)}
+                  className={`relative rounded-2xl overflow-hidden aspect-square border-2 transition-all group ${
+                    selectedPresetUrl === preset.url
+                      ? 'border-pro-400 scale-105 ring-2 ring-pro-400/50'
+                      : 'border-white/10 hover:border-pro-400/60'
+                  }`}
+                  title={preset.name}
+                >
+                  <img
+                    src={preset.url}
+                    alt={preset.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                  />
+                  {selectedPresetUrl === preset.url && (
+                    <div className="absolute inset-0 bg-pro-600/40 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <UploadCloud className="w-3.5 h-3.5 text-pro-400" />
+              <span>Or Choose from Your Device</span>
+            </h4>
+
             <input
-              type="text"
-              required
-              placeholder="e.g. Senior Software Engineer"
-              value={expTitle}
-              onChange={(e) => setExpTitle(e.target.value)}
-              className="pro-input text-xs"
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              onChange={handleAvatarFileSelect}
+              className="hidden"
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Company</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. NovaTech Systems"
-                value={expCompany}
-                onChange={(e) => setExpCompany(e.target.value)}
-                className="pro-input text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Employment Type</label>
-              <select
-                value={expType}
-                onChange={(e) => setExpType(e.target.value)}
-                className="pro-input text-xs"
-              >
-                <option value="Full-time">Full-time</option>
-                <option value="Part-time">Part-time</option>
-                <option value="Contract">Contract</option>
-                <option value="Internship">Internship</option>
-              </select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Start Date</label>
-              <input
-                type="text"
-                placeholder="e.g. 2021-03"
-                value={expStartDate}
-                onChange={(e) => setExpStartDate(e.target.value)}
-                className="pro-input text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">End Date</label>
-              <input
-                type="text"
-                placeholder="e.g. 2023-08"
-                disabled={expCurrent}
-                value={expEndDate}
-                onChange={(e) => setExpEndDate(e.target.value)}
-                className="pro-input text-xs disabled:bg-slate-100"
-              />
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={expCurrent}
-              onChange={(e) => setExpCurrent(e.target.checked)}
-              className="rounded text-pro-600"
-            />
-            <span>I currently work in this role</span>
-          </label>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Description / Responsibilities</label>
-            <textarea
-              rows={3}
-              value={expDescription}
-              onChange={(e) => setExpDescription(e.target.value)}
-              className="pro-input text-xs"
-              placeholder="Describe your achievements and technical responsibilities..."
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => setExpModalOpen(false)}
-              className="pro-btn-secondary text-xs px-4 py-2"
+              onClick={() => avatarInputRef.current?.click()}
+              className="pro-btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
+            >
+              <UploadCloud className="w-4 h-4 text-pro-400" />
+              <span>Browse Files...</span>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setAvatarModalOpen(false);
+                setPreviewImage(null);
+                setUploadFile(null);
+                setSelectedPresetUrl(null);
+              }}
+              className="pro-btn-secondary text-xs py-2 px-4"
             >
               Cancel
             </button>
-            <button type="submit" className="pro-btn-primary text-xs px-4 py-2">
-              Add Experience
+            <button
+              type="button"
+              onClick={handleSaveAvatar}
+              disabled={isUploading || (!uploadFile && !selectedPresetUrl)}
+              className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              <span>{isUploading ? 'Saving...' : 'Apply Photo'}</span>
             </button>
           </div>
-        </form>
+        </div>
       </Modal>
 
-      {/* Education Add Modal */}
-      <Modal isOpen={eduModalOpen} onClose={() => setEduModalOpen(false)} title="Add Education">
+      {/* ======================================================== */}
+      {/* 6. COVER BANNER UPLOAD & GALLERY MODAL */}
+      {/* ======================================================== */}
+      <Modal
+        isOpen={coverModalOpen}
+        onClose={() => setCoverModalOpen(false)}
+        title="Choose Cover Banner"
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-5">
+          <div className="h-36 rounded-2xl overflow-hidden bg-slate-900 border border-white/15 relative shadow-xl">
+            {previewImage ? (
+              <img
+                src={previewImage}
+                alt="Cover preview"
+                className="w-full h-full object-cover"
+              />
+            ) : profile?.coverImage ? (
+              <img
+                src={profile.coverImage}
+                alt="Current cover"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-medium">
+                No cover banner selected
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-pro-400" />
+              <span>Choose from Default Gallery</span>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {PRESET_BANNERS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectPresetBanner(preset.url)}
+                  className={`relative rounded-xl overflow-hidden h-20 border-2 transition-all group ${
+                    selectedPresetUrl === preset.url
+                      ? 'border-pro-400 scale-[1.02] ring-2 ring-pro-400/50'
+                      : 'border-white/10 hover:border-pro-400/60'
+                  }`}
+                  title={preset.name}
+                >
+                  <img
+                    src={preset.url}
+                    alt={preset.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                    <span className="text-[10px] font-bold text-white truncate">{preset.name}</span>
+                  </div>
+                  {selectedPresetUrl === preset.url && (
+                    <div className="absolute inset-0 bg-pro-600/40 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <UploadCloud className="w-3.5 h-3.5 text-pro-400" />
+              <span>Or Choose from Your Device</span>
+            </h4>
+
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              onChange={handleCoverFileSelect}
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              className="pro-btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
+            >
+              <UploadCloud className="w-4 h-4 text-pro-400" />
+              <span>Browse Banner Image...</span>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCoverModalOpen(false);
+                setPreviewImage(null);
+                setUploadFile(null);
+                setSelectedPresetUrl(null);
+              }}
+              className="pro-btn-secondary text-xs py-2 px-4"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveCover}
+              disabled={isUploading || (!uploadFile && !selectedPresetUrl)}
+              className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              <span>{isUploading ? 'Saving...' : 'Apply Banner'}</span>
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* 7. ADD EDUCATION MODAL */}
+      {/* ======================================================== */}
+      <Modal
+        isOpen={eduModalOpen}
+        onClose={() => setEduModalOpen(false)}
+        title="Add Education Credential"
+      >
         <form onSubmit={handleAddEducation} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">School / University</label>
+            <label className="block text-xs font-bold text-slate-200 mb-1">School / University *</label>
             <input
               type="text"
               required
-              placeholder="e.g. Stanford University"
               value={eduSchool}
               onChange={(e) => setEduSchool(e.target.value)}
               className="pro-input text-xs"
+              placeholder="e.g. Indian Institute of Science"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Degree</label>
+              <label className="block text-xs font-bold text-slate-200 mb-1">Degree *</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. B.S. Computer Science"
                 value={eduDegree}
                 onChange={(e) => setEduDegree(e.target.value)}
                 className="pro-input text-xs"
+                placeholder="e.g. Bachelor of Technology"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Field of Study</label>
+              <label className="block text-xs font-bold text-slate-200 mb-1">Field of Study</label>
               <input
                 type="text"
-                placeholder="e.g. Software Systems"
                 value={eduField}
                 onChange={(e) => setEduField(e.target.value)}
                 className="pro-input text-xs"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Start Year</label>
-              <input
-                type="text"
-                placeholder="e.g. 2016"
-                value={eduStartDate}
-                onChange={(e) => setEduStartDate(e.target.value)}
-                className="pro-input text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">End Year (or Expected)</label>
-              <input
-                type="text"
-                placeholder="e.g. 2020"
-                value={eduEndDate}
-                onChange={(e) => setEduEndDate(e.target.value)}
-                className="pro-input text-xs"
+                placeholder="e.g. Computer Science"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-200 mb-1">Start Year</label>
+              <input
+                type="text"
+                value={eduStartDate}
+                onChange={(e) => setEduStartDate(e.target.value)}
+                className="pro-input text-xs"
+                placeholder="e.g. 2022"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-200 mb-1">End Year</label>
+              <input
+                type="text"
+                value={eduEndDate}
+                onChange={(e) => setEduEndDate(e.target.value)}
+                className="pro-input text-xs"
+                placeholder="e.g. 2026"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-200 mb-1">Grade / CGPA</label>
+              <input
+                type="text"
+                value={eduGrade}
+                onChange={(e) => setEduGrade(e.target.value)}
+                className="pro-input text-xs"
+                placeholder="e.g. 8.9 / 10"
+              />
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setEduModalOpen(false)}
-              className="pro-btn-secondary text-xs px-4 py-2"
+              className="pro-btn-secondary text-xs py-2 px-4"
             >
               Cancel
             </button>
-            <button type="submit" className="pro-btn-primary text-xs px-4 py-2">
-              Add Education
+            <button
+              type="submit"
+              className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Education</span>
             </button>
           </div>
         </form>

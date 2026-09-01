@@ -4,19 +4,14 @@ import {
   MapPin,
   Mail,
   Phone,
-  Briefcase,
   GraduationCap,
   Award,
   Code,
-  FileText,
   Star,
   UserPlus,
   MessageSquare,
   Edit,
   Check,
-  ExternalLink,
-  Download,
-  Calendar,
   Camera,
   Trash2,
   UploadCloud,
@@ -26,22 +21,76 @@ import {
   Eye,
   Users,
   BarChart3,
-  Share2,
-  Bookmark,
   CheckCircle2,
   Clock,
   ChevronRight,
   ShieldCheck,
   Activity,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { profileService, connectionService, postService, analyticsService } from '../../services/api';
 import Avatar from '../../components/common/Avatar';
 import Modal from '../../components/common/Modal';
-import ResumeViewerModal from '../../components/profile/ResumeViewerModal';
 import CareerScoreWidget from '../../components/profile/CareerScoreWidget';
 import PostCard from '../../components/feed/PostCard';
+
+// Curated Default Preset Avatars Gallery
+const PRESET_AVATARS = [
+  {
+    name: 'Tech Architect',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Full Stack Engineer',
+    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Systems Developer',
+    url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Backend Specialist',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'UI/UX Engineer',
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Engineering Lead',
+    url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80',
+  },
+];
+
+// Curated Default Preset Cover Banners Gallery
+const PRESET_BANNERS = [
+  {
+    name: 'Liquid Glass Tech',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Cyber Neon Glow',
+    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Deep Indigo Space',
+    url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Minimal Modernist',
+    url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Silicon Circuitry',
+    url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Matrix Code Grid',
+    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80',
+  },
+];
 
 const ProfilePage = () => {
   const { id } = useParams();
@@ -52,14 +101,12 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState('NONE'); // NONE | PENDING_SENT | PENDING_RECEIVED | CONNECTED | SELF
+  const [connectionStatus, setConnectionStatus] = useState('NONE');
   const [connectionId, setConnectionId] = useState(null);
-  const [resumeModalOpen, setResumeModalOpen] = useState(false);
 
   // User's Real Posts
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
-  const [activeActivityTab, setActiveActivityTab] = useState('posts'); // 'posts' | 'about'
 
   // Sidebar Data
   const [suggestions, setSuggestions] = useState([]);
@@ -67,11 +114,12 @@ const ProfilePage = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState('7D');
 
-  // Avatar & Cover Upload Modals
+  // Avatar & Cover Upload Modals + Preset Gallery State
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [coverModalOpen, setCoverModalOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [uploadFile, setUploadFile] = useState(null);
+  const [selectedPresetUrl, setSelectedPresetUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const avatarInputRef = useRef(null);
@@ -197,23 +245,44 @@ const ProfilePage = () => {
     }
 
     setUploadFile(file);
+    setSelectedPresetUrl(null);
     setPreviewImage(URL.createObjectURL(file));
   };
 
+  const handleSelectPresetAvatar = (url) => {
+    setSelectedPresetUrl(url);
+    setUploadFile(null);
+    setPreviewImage(url);
+  };
+
   const handleSaveAvatar = async () => {
-    if (!uploadFile) return;
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('avatar', uploadFile);
-      const res = await profileService.uploadAvatar(formData);
-      if (res.success && res.profile) {
-        setProfile(res.profile);
-        updateProfileState(res.profile);
-        showToast('Profile photo updated successfully!', 'success');
-        setAvatarModalOpen(false);
-        setUploadFile(null);
-        setPreviewImage(null);
+      if (selectedPresetUrl) {
+        // Save preset URL
+        const res = await profileService.updateProfile({ avatar: selectedPresetUrl });
+        if (res.success && res.profile) {
+          setProfile(res.profile);
+          updateProfileState(res.profile);
+          showToast('Profile photo updated from gallery!', 'success');
+          setAvatarModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+          setSelectedPresetUrl(null);
+        }
+      } else if (uploadFile) {
+        // Upload file
+        const formData = new FormData();
+        formData.append('avatar', uploadFile);
+        const res = await profileService.uploadAvatar(formData);
+        if (res.success && res.profile) {
+          setProfile(res.profile);
+          updateProfileState(res.profile);
+          showToast('Profile photo uploaded successfully!', 'success');
+          setAvatarModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+        }
       }
     } catch (err) {
       showToast(err.message || 'Failed to update photo', 'error');
@@ -223,7 +292,7 @@ const ProfilePage = () => {
   };
 
   const handleRemoveAvatar = async () => {
-    if (!window.confirm('Remove your profile photo and reset to default?')) return;
+    if (!window.confirm('Remove your profile photo and reset to default monogram?')) return;
     setIsUploading(true);
     try {
       const res = await profileService.removeAvatar();
@@ -234,6 +303,7 @@ const ProfilePage = () => {
         setAvatarModalOpen(false);
         setUploadFile(null);
         setPreviewImage(null);
+        setSelectedPresetUrl(null);
       }
     } catch (err) {
       showToast(err.message || 'Failed to remove photo', 'error');
@@ -256,23 +326,44 @@ const ProfilePage = () => {
     }
 
     setUploadFile(file);
+    setSelectedPresetUrl(null);
     setPreviewImage(URL.createObjectURL(file));
   };
 
+  const handleSelectPresetBanner = (url) => {
+    setSelectedPresetUrl(url);
+    setUploadFile(null);
+    setPreviewImage(url);
+  };
+
   const handleSaveCover = async () => {
-    if (!uploadFile) return;
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('cover', uploadFile);
-      const res = await profileService.uploadCover(formData);
-      if (res.success && res.profile) {
-        setProfile(res.profile);
-        updateProfileState(res.profile);
-        showToast('Cover banner updated!', 'success');
-        setCoverModalOpen(false);
-        setUploadFile(null);
-        setPreviewImage(null);
+      if (selectedPresetUrl) {
+        // Save preset banner URL
+        const res = await profileService.updateProfile({ coverImage: selectedPresetUrl });
+        if (res.success && res.profile) {
+          setProfile(res.profile);
+          updateProfileState(res.profile);
+          showToast('Cover banner updated from gallery!', 'success');
+          setCoverModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+          setSelectedPresetUrl(null);
+        }
+      } else if (uploadFile) {
+        // Upload file
+        const formData = new FormData();
+        formData.append('cover', uploadFile);
+        const res = await profileService.uploadCover(formData);
+        if (res.success && res.profile) {
+          setProfile(res.profile);
+          updateProfileState(res.profile);
+          showToast('Cover banner updated!', 'success');
+          setCoverModalOpen(false);
+          setUploadFile(null);
+          setPreviewImage(null);
+        }
       }
     } catch (err) {
       showToast(err.message || 'Failed to update cover', 'error');
@@ -293,6 +384,7 @@ const ProfilePage = () => {
         setCoverModalOpen(false);
         setUploadFile(null);
         setPreviewImage(null);
+        setSelectedPresetUrl(null);
       }
     } catch (err) {
       showToast(err.message || 'Failed to remove cover', 'error');
@@ -382,8 +474,7 @@ const ProfilePage = () => {
   }
 
   const chartHistory =
-    analyticsData?.impressionsHistory?.[analyticsTimeframe] ||
-    [
+    analyticsData?.impressionsHistory?.[analyticsTimeframe] || [
       { date: 'Mon', value: 45, reach: 210 },
       { date: 'Tue', value: 68, reach: 340 },
       { date: 'Wed', value: 92, reach: 480 },
@@ -419,12 +510,13 @@ const ProfilePage = () => {
               onClick={() => {
                 setUploadFile(null);
                 setPreviewImage(null);
+                setSelectedPresetUrl(null);
                 setCoverModalOpen(true);
               }}
               className="absolute top-4 right-4 py-1.5 px-3.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 text-white text-xs font-bold backdrop-blur-md flex items-center gap-2 transition-all border border-white/20 shadow-lg hover:scale-105"
             >
               <Camera className="w-3.5 h-3.5 text-pro-400" />
-              <span className="hidden sm:inline">Edit Cover</span>
+              <span className="hidden sm:inline">Change Banner</span>
             </button>
           )}
         </div>
@@ -448,6 +540,7 @@ const ProfilePage = () => {
                     onClick={() => {
                       setUploadFile(null);
                       setPreviewImage(null);
+                      setSelectedPresetUrl(null);
                       setAvatarModalOpen(true);
                     }}
                     className="absolute inset-0 rounded-full bg-slate-950/70 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs shadow-md border border-pro-400/40"
@@ -482,11 +575,6 @@ const ProfilePage = () => {
                   <span className="text-pro-300 font-semibold">
                     {connectionsCount > 0 ? `${connectionsCount} connections` : '500+ connections'}
                   </span>
-                  {profile.preferredWorkMode && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-slate-300 border border-white/15">
-                      {profile.preferredWorkMode}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -559,6 +647,36 @@ const ProfilePage = () => {
               )}
             </div>
           </div>
+
+          {/* ======================================================== */}
+          {/* PROMINENT SKILLS REFLECTED DIRECTLY BELOW PROFILE PICTURE */}
+          {/* ======================================================== */}
+          {profile.skills && profile.skills.length > 0 && (
+            <div className="pt-3 border-t border-white/10 mt-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Award className="w-3.5 h-3.5 text-pro-400" />
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-300">
+                  Verified Technical Skills
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {profile.skills.map((skill) => (
+                  <span
+                    key={skill._id || skill.name}
+                    className="px-3 py-1 rounded-xl text-xs font-bold bg-pro-500/15 text-pro-200 border border-pro-400/30 flex items-center gap-1.5 hover:bg-pro-500/25 transition-all shadow-sm"
+                  >
+                    <Code className="w-3 h-3 text-pro-400" />
+                    <span>{skill.name}</span>
+                    {skill.endorsements && skill.endorsements.length > 0 && (
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-pro-600/40 text-pro-100">
+                        {skill.endorsements.length}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -573,82 +691,96 @@ const ProfilePage = () => {
           {/* Career Score / Completeness Prompt (Owner Only) */}
           {isOwnProfile && <CareerScoreWidget profile={profile} />}
 
-          {/* About Section */}
-          {profile.about && (
-            <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-pro-400" />
-                  <span>About</span>
-                </h3>
-                {isOwnProfile && (
-                  <Link to="/profile/edit#about" className="text-xs font-bold text-pro-400 hover:text-pro-300">
-                    Edit
-                  </Link>
-                )}
-              </div>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-                {profile.about}
-              </p>
-            </div>
-          )}
-
-          {/* Featured Section */}
+          {/* Education Credentials */}
           <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>Featured Highlights</span>
+                <GraduationCap className="w-4 h-4 text-pro-400" />
+                <span>Education</span>
               </h3>
               {isOwnProfile && (
-                <Link to="/profile/edit" className="text-xs font-bold text-pro-400 hover:text-pro-300">
-                  + Add Featured
+                <Link to="/profile/edit#education" className="text-xs font-bold text-pro-400 hover:text-pro-300">
+                  + Add Education
                 </Link>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {profile.resume && profile.resume.url && (
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 hover:border-pro-400/50 transition-all group">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="p-2.5 rounded-xl bg-pro-600/20 text-pro-300 border border-pro-500/30 shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="font-bold text-white text-xs truncate">Verified Resume</p>
-                      <p className="text-[10px] text-slate-400 truncate">Attached PDF document</p>
-                    </div>
+            {profile.education && profile.education.length > 0 ? (
+              <div className="space-y-3">
+                {profile.education.map((edu, idx) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs">
+                    <h4 className="font-bold text-white text-sm">{edu.school}</h4>
+                    <p className="font-semibold text-slate-300">
+                      {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {edu.startDate} – {edu.endDate} {edu.grade ? `· Grade: ${edu.grade}` : ''}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => setResumeModalOpen(true)}
-                    className="pro-btn-secondary text-[11px] py-1 px-2.5 shrink-0"
-                  >
-                    View
-                  </button>
-                </div>
-              )}
-
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 hover:border-pro-400/50 transition-all">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="p-2.5 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shrink-0">
-                    <Code className="w-5 h-5" />
-                  </div>
-                  <div className="overflow-hidden">
-                    <p className="font-bold text-white text-xs truncate">Technical Portfolio</p>
-                    <p className="text-[10px] text-slate-400 truncate">Full stack architecture & code</p>
-                  </div>
-                </div>
-                <a
-                  href="https://github.com/kjakash05-lang/careerlink"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="pro-btn-secondary text-[11px] py-1 px-2.5 shrink-0 flex items-center gap-1"
-                >
-                  <span>Code</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                ))}
               </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No education credentials added.</p>
+            )}
+          </div>
+
+          {/* Verified Skills & Peer Endorsements Section */}
+          <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                <Award className="w-4 h-4 text-pro-400" />
+                <span>Skills & Endorsements</span>
+              </h3>
+              {isOwnProfile && (
+                <Link to="/profile/edit#skills" className="text-xs font-bold text-pro-400 hover:text-pro-300">
+                  + Manage Skills
+                </Link>
+              )}
             </div>
+
+            {profile.skills && profile.skills.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {profile.skills.map((skill) => {
+                  const endorsementsCount = skill.endorsements ? skill.endorsements.length : 0;
+                  const isEndorsedByMe =
+                    currentUser &&
+                    skill.endorsements?.some(
+                      (e) => (e.user?._id || e.user || e.user?.id) === (currentUser.id || currentUser._id)
+                    );
+
+                  return (
+                    <div
+                      key={skill._id || skill.name}
+                      className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 hover:border-pro-400/40 transition-colors"
+                    >
+                      <div>
+                        <p className="font-bold text-xs text-white">{skill.name}</p>
+                        <p className="text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-1">
+                          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                          <span>{endorsementsCount} {endorsementsCount === 1 ? 'endorsement' : 'endorsements'}</span>
+                        </p>
+                      </div>
+
+                      {!isOwnProfile && currentUser && (
+                        <button
+                          onClick={() => handleEndorseSkill(skill._id)}
+                          className={`text-xs font-bold px-3 py-1 rounded-xl transition-all flex items-center gap-1 ${
+                            isEndorsedByMe
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-white/10 hover:bg-white/20 text-white border border-white/15'
+                          }`}
+                        >
+                          <Star className={`w-3 h-3 ${isEndorsedByMe ? 'fill-amber-400 text-amber-400' : ''}`} />
+                          <span>{isEndorsedByMe ? 'Endorsed' : 'Endorse'}</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No skills listed yet.</p>
+            )}
           </div>
 
           {/* User's Real Posts / Activity */}
@@ -693,137 +825,6 @@ const ProfilePage = () => {
                   </Link>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* Work Experience Section */}
-          <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-pro-400" />
-                <span>Experience</span>
-              </h3>
-              {isOwnProfile && (
-                <Link to="/profile/edit#experience" className="text-xs font-bold text-pro-400 hover:text-pro-300">
-                  + Add Experience
-                </Link>
-              )}
-            </div>
-
-            {profile.experience && profile.experience.length > 0 ? (
-              <div className="space-y-5 border-l-2 border-white/15 pl-4 ml-2">
-                {profile.experience.map((exp, idx) => (
-                  <div key={idx} className="relative space-y-1">
-                    <div className="absolute -left-[23px] top-1.5 w-3 h-3 rounded-full bg-pro-500 ring-4 ring-slate-950" />
-                    <h4 className="text-sm font-bold text-white">{exp.title}</h4>
-                    <p className="text-xs font-semibold text-slate-300">
-                      {exp.company} {exp.location ? `· ${exp.location}` : ''}
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      {exp.startDate} – {exp.current ? 'Present' : exp.endDate} · {exp.employmentType || 'Full-time'}
-                    </p>
-                    {exp.description && (
-                      <p className="text-xs text-slate-400 mt-1 whitespace-pre-line leading-relaxed">
-                        {exp.description}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No work experience entries added.</p>
-            )}
-          </div>
-
-          {/* Education Credentials */}
-          <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                <GraduationCap className="w-4 h-4 text-pro-400" />
-                <span>Education</span>
-              </h3>
-              {isOwnProfile && (
-                <Link to="/profile/edit#education" className="text-xs font-bold text-pro-400 hover:text-pro-300">
-                  + Add Education
-                </Link>
-              )}
-            </div>
-
-            {profile.education && profile.education.length > 0 ? (
-              <div className="space-y-3">
-                {profile.education.map((edu, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs">
-                    <h4 className="font-bold text-white text-sm">{edu.school}</h4>
-                    <p className="font-semibold text-slate-300">
-                      {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      {edu.startDate} – {edu.endDate} {edu.grade ? `· Grade: ${edu.grade}` : ''}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No education credentials added.</p>
-            )}
-          </div>
-
-          {/* Verified Skills & Peer Endorsements */}
-          <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                <Award className="w-4 h-4 text-pro-400" />
-                <span>Skills & Endorsements</span>
-              </h3>
-              {isOwnProfile && (
-                <Link to="/profile/edit#skills" className="text-xs font-bold text-pro-400 hover:text-pro-300">
-                  + Manage Skills
-                </Link>
-              )}
-            </div>
-
-            {profile.skills && profile.skills.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {profile.skills.map((skill) => {
-                  const endorsementsCount = skill.endorsements ? skill.endorsements.length : 0;
-                  const isEndorsedByMe =
-                    currentUser &&
-                    skill.endorsements?.some(
-                      (e) => (e.user?._id || e.user || e.user?.id) === (currentUser.id || currentUser._id)
-                    );
-
-                  return (
-                    <div
-                      key={skill._id}
-                      className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 hover:border-pro-400/40 transition-colors"
-                    >
-                      <div>
-                        <p className="font-bold text-xs text-white">{skill.name}</p>
-                        <p className="text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-1">
-                          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                          <span>{endorsementsCount} {endorsementsCount === 1 ? 'endorsement' : 'endorsements'}</span>
-                        </p>
-                      </div>
-
-                      {!isOwnProfile && currentUser && (
-                        <button
-                          onClick={() => handleEndorseSkill(skill._id)}
-                          className={`text-xs font-bold px-3 py-1 rounded-xl transition-all flex items-center gap-1 ${
-                            isEndorsedByMe
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                              : 'bg-white/10 hover:bg-white/20 text-white border border-white/15'
-                          }`}
-                        >
-                          <Star className={`w-3 h-3 ${isEndorsedByMe ? 'fill-amber-400 text-amber-400' : ''}`} />
-                          <span>{isEndorsedByMe ? 'Endorsed' : 'Endorse'}</span>
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No skills listed yet.</p>
             )}
           </div>
         </div>
@@ -963,104 +964,146 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Resume Viewer Modal */}
-      {profile.resume && (
-        <ResumeViewerModal
-          isOpen={resumeModalOpen}
-          onClose={() => setResumeModalOpen(false)}
-          resume={profile.resume}
-          candidateName={profile.fullName}
-        />
-      )}
-
-      {/* Avatar Upload Modal */}
+      {/* ======================================================== */}
+      {/* 3. AVATAR UPLOAD & GALLERY PRESET MODAL */}
+      {/* ======================================================== */}
       <Modal
         isOpen={avatarModalOpen}
         onClose={() => setAvatarModalOpen(false)}
-        title="Edit Profile Photo"
+        title="Choose Profile Picture"
+        maxWidth="max-w-xl"
       >
-        <div className="space-y-4 text-center">
-          <div className="flex justify-center">
-            {previewImage ? (
-              <img
-                src={previewImage}
-                alt="Avatar preview"
-                className="w-32 h-32 rounded-full object-cover border-4 border-pro-500 shadow-md"
-              />
-            ) : (
-              <Avatar src={profile.avatar} alt={profile.fullName} size="2xl" />
-            )}
+        <div className="space-y-5">
+          {/* Live Preview */}
+          <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-2xl border border-white/10">
+            <div className="relative">
+              {previewImage ? (
+                <img
+                  src={previewImage}
+                  alt="Avatar preview"
+                  className="w-28 h-28 rounded-full object-cover border-4 border-pro-500 shadow-xl"
+                />
+              ) : (
+                <Avatar src={profile.avatar} alt={profile.fullName} size="2xl" className="w-28 h-28" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Select from default preset gallery below or choose a file from your device.
+            </p>
           </div>
 
-          <p className="text-xs text-slate-400">
-            JPG, PNG, WebP supported. Maximum file size 5MB.
-          </p>
+          {/* Option A: Default Preset Gallery */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-pro-400" />
+              <span>Choose from Default Gallery</span>
+            </h4>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+              {PRESET_AVATARS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectPresetAvatar(preset.url)}
+                  className={`relative rounded-2xl overflow-hidden aspect-square border-2 transition-all group ${
+                    selectedPresetUrl === preset.url
+                      ? 'border-pro-400 scale-105 ring-2 ring-pro-400/50'
+                      : 'border-white/10 hover:border-pro-400/60'
+                  }`}
+                  title={preset.name}
+                >
+                  <img
+                    src={preset.url}
+                    alt={preset.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                  />
+                  {selectedPresetUrl === preset.url && (
+                    <div className="absolute inset-0 bg-pro-600/40 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/png, image/jpeg, image/jpg, image/webp"
-            onChange={handleAvatarFileSelect}
-            className="hidden"
-          />
+          {/* Option B: Upload from Device */}
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <UploadCloud className="w-3.5 h-3.5 text-pro-400" />
+              <span>Or Choose from Your Device</span>
+            </h4>
 
-          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              onChange={handleAvatarFileSelect}
+              className="hidden"
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                className="pro-btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
+              >
+                <UploadCloud className="w-4 h-4 text-pro-400" />
+                <span>Browse Files...</span>
+              </button>
+
+              {profile.avatar && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={isUploading}
+                  className="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Reset to Initials</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              className="pro-btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
+              onClick={() => {
+                setAvatarModalOpen(false);
+                setPreviewImage(null);
+                setUploadFile(null);
+                setSelectedPresetUrl(null);
+              }}
+              className="pro-btn-secondary text-xs py-2 px-4"
             >
-              <UploadCloud className="w-4 h-4" />
-              <span>Choose Photo</span>
+              Cancel
             </button>
-
-            {profile.avatar && (
-              <button
-                type="button"
-                onClick={handleRemoveAvatar}
-                disabled={isUploading}
-                className="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Remove</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSaveAvatar}
+              disabled={isUploading || (!uploadFile && !selectedPresetUrl)}
+              className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              <span>{isUploading ? 'Saving...' : 'Apply Photo'}</span>
+            </button>
           </div>
-
-          {previewImage && (
-            <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPreviewImage(null);
-                  setUploadFile(null);
-                }}
-                className="pro-btn-secondary text-xs py-2 px-4"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAvatar}
-                disabled={isUploading}
-                className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5"
-              >
-                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                <span>{isUploading ? 'Uploading...' : 'Save Photo'}</span>
-              </button>
-            </div>
-          )}
         </div>
       </Modal>
 
-      {/* Cover Banner Upload Modal */}
+      {/* ======================================================== */}
+      {/* 4. COVER BANNER UPLOAD & GALLERY PRESET MODAL */}
+      {/* ======================================================== */}
       <Modal
         isOpen={coverModalOpen}
         onClose={() => setCoverModalOpen(false)}
-        title="Edit Cover Banner"
+        title="Choose Cover Banner"
+        maxWidth="max-w-2xl"
       >
-        <div className="space-y-4">
-          <div className="h-36 rounded-2xl overflow-hidden bg-slate-900 border border-white/10">
+        <div className="space-y-5">
+          {/* Live Preview */}
+          <div className="h-36 rounded-2xl overflow-hidden bg-slate-900 border border-white/15 relative shadow-xl">
             {previewImage ? (
               <img
                 src={previewImage}
@@ -1074,70 +1117,112 @@ const ProfilePage = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                No cover banner set
+              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 font-medium">
+                No cover banner selected
               </div>
             )}
           </div>
 
-          <p className="text-xs text-slate-400 text-center">
-            Recommended aspect ratio 4:1. Maximum file size 8MB.
-          </p>
-
-          <input
-            ref={coverInputRef}
-            type="file"
-            accept="image/png, image/jpeg, image/jpg, image/webp"
-            onChange={handleCoverFileSelect}
-            className="hidden"
-          />
-
-          <div className="flex justify-center gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => coverInputRef.current?.click()}
-              className="pro-btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
-            >
-              <UploadCloud className="w-4 h-4" />
-              <span>Choose Banner Image</span>
-            </button>
-
-            {profile.coverImage && (
-              <button
-                type="button"
-                onClick={handleRemoveCover}
-                disabled={isUploading}
-                className="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Remove</span>
-              </button>
-            )}
+          {/* Option A: Default Preset Gallery */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-pro-400" />
+              <span>Choose from Default Gallery</span>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {PRESET_BANNERS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectPresetBanner(preset.url)}
+                  className={`relative rounded-xl overflow-hidden h-20 border-2 transition-all group ${
+                    selectedPresetUrl === preset.url
+                      ? 'border-pro-400 scale-[1.02] ring-2 ring-pro-400/50'
+                      : 'border-white/10 hover:border-pro-400/60'
+                  }`}
+                  title={preset.name}
+                >
+                  <img
+                    src={preset.url}
+                    alt={preset.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                    <span className="text-[10px] font-bold text-white truncate">{preset.name}</span>
+                  </div>
+                  {selectedPresetUrl === preset.url && (
+                    <div className="absolute inset-0 bg-pro-600/40 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {previewImage && (
-            <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
+          {/* Option B: Upload from Device */}
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <UploadCloud className="w-3.5 h-3.5 text-pro-400" />
+              <span>Or Choose from Your Device</span>
+            </h4>
+
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/png, image/jpeg, image/jpg, image/webp"
+              onChange={handleCoverFileSelect}
+              className="hidden"
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setPreviewImage(null);
-                  setUploadFile(null);
-                }}
-                className="pro-btn-secondary text-xs py-2 px-4"
+                onClick={() => coverInputRef.current?.click()}
+                className="pro-btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
               >
-                Cancel
+                <UploadCloud className="w-4 h-4 text-pro-400" />
+                <span>Browse Banner Image...</span>
               </button>
-              <button
-                type="button"
-                onClick={handleSaveCover}
-                disabled={isUploading}
-                className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5"
-              >
-                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                <span>{isUploading ? 'Saving...' : 'Save Cover'}</span>
-              </button>
+
+              {profile.coverImage && (
+                <button
+                  type="button"
+                  onClick={handleRemoveCover}
+                  disabled={isUploading}
+                  className="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Remove Banner</span>
+                </button>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCoverModalOpen(false);
+                setPreviewImage(null);
+                setUploadFile(null);
+                setSelectedPresetUrl(null);
+              }}
+              className="pro-btn-secondary text-xs py-2 px-4"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveCover}
+              disabled={isUploading || (!uploadFile && !selectedPresetUrl)}
+              className="pro-btn-primary text-xs py-2 px-5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              <span>{isUploading ? 'Saving...' : 'Apply Banner'}</span>
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
