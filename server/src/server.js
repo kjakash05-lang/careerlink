@@ -53,23 +53,56 @@ const io = new Server(server, {
   },
 });
 
+const jwt = require('jsonwebtoken');
+
+// Socket.io JWT Authentication Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'careerlink_super_secret_jwt_key_2026');
+      socket.userId = decoded.id;
+    } catch (err) {
+      console.warn('[Socket Auth]:', err.message);
+    }
+  }
+  next();
+});
+
 app.set('io', io);
 
 // Socket.io connection handlers
 io.on('connection', (socket) => {
+  const effectiveUserId = socket.userId || socket.handshake.query?.userId;
+  if (effectiveUserId) {
+    const uid = effectiveUserId.toString();
+    socket.join(`user:${uid}`);
+    socket.join(uid);
+    console.log(`[Socket] Authenticated user joined rooms: user:${uid}, ${uid}`);
+  }
+
   // Join personal room by user ID for instant 1-to-1 notifications & messages
   socket.on('join', (userId) => {
     if (userId) {
-      socket.join(userId.toString());
+      const uid = userId.toString();
+      socket.join(`user:${uid}`);
+      socket.join(uid);
+      console.log(`[Socket] User explicitly joined rooms: user:${uid}, ${uid}`);
     }
   });
 
   socket.on('typing', ({ senderId, recipientId }) => {
-    io.to(recipientId).emit('user_typing', { senderId });
+    if (recipientId) {
+      io.to(`user:${recipientId.toString()}`).emit('user_typing', { senderId });
+      io.to(recipientId.toString()).emit('user_typing', { senderId });
+    }
   });
 
   socket.on('stop_typing', ({ senderId, recipientId }) => {
-    io.to(recipientId).emit('user_stop_typing', { senderId });
+    if (recipientId) {
+      io.to(`user:${recipientId.toString()}`).emit('user_stop_typing', { senderId });
+      io.to(recipientId.toString()).emit('user_stop_typing', { senderId });
+    }
   });
 
   socket.on('disconnect', () => {

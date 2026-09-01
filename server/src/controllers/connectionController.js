@@ -3,6 +3,25 @@ const User = require('../models/User');
 const Profile = require('../models/Profile');
 const Notification = require('../models/Notification');
 
+// Helper to emit connection updates to all user rooms
+const emitConnectionUpdate = (io, recipientId, requesterId, payload) => {
+  if (!io) return;
+  if (recipientId) {
+    const rId = recipientId.toString();
+    io.to(`user:${rId}`).emit('connection_updated', payload);
+    io.to(`user:${rId}`).emit('connection:updated', payload);
+    io.to(rId).emit('connection_updated', payload);
+    io.to(rId).emit('connection:updated', payload);
+  }
+  if (requesterId) {
+    const reqId = requesterId.toString();
+    io.to(`user:${reqId}`).emit('connection_updated', payload);
+    io.to(`user:${reqId}`).emit('connection:updated', payload);
+    io.to(reqId).emit('connection_updated', payload);
+    io.to(reqId).emit('connection:updated', payload);
+  }
+};
+
 // Helper to create and emit real-time notification
 const sendNotification = async (req, notifData) => {
   try {
@@ -10,11 +29,16 @@ const sendNotification = async (req, notifData) => {
     const populated = await Notification.findById(notif._id).populate({
       path: 'sender',
       select: 'email role',
-      populate: { path: 'profile', select: 'firstName lastName headline avatar' },
+      populate: { path: 'profile', select: 'firstName lastName headline avatar location' },
     });
     const io = req.app.get('io');
     if (io && notifData.recipient) {
-      io.to(notifData.recipient.toString()).emit('new_notification', populated);
+      const recId = notifData.recipient.toString();
+      console.log(`[Notification] Emitted to user:${recId} & ${recId}: ${populated.title} - ${populated.message}`);
+      io.to(`user:${recId}`).emit('notification:new', populated);
+      io.to(`user:${recId}`).emit('new_notification', populated);
+      io.to(recId).emit('notification:new', populated);
+      io.to(recId).emit('new_notification', populated);
     }
     return populated;
   } catch (err) {
@@ -112,9 +136,7 @@ exports.sendRequest = async (req, res, next) => {
       });
 
       const io = req.app.get('io');
-      if (io) {
-        io.to(recipientId.toString()).emit('connection_updated', { type: 'REQUEST_RECEIVED', connection: existing });
-      }
+      emitConnectionUpdate(io, recipientId, req.user.id, { type: 'REQUEST_RECEIVED', connection: existing });
 
       return res.status(200).json({ success: true, message: 'Connection request sent.', connection: existing });
     }
@@ -135,9 +157,7 @@ exports.sendRequest = async (req, res, next) => {
     });
 
     const io = req.app.get('io');
-    if (io) {
-      io.to(recipientId.toString()).emit('connection_updated', { type: 'REQUEST_RECEIVED', connection });
-    }
+    emitConnectionUpdate(io, recipientId, req.user.id, { type: 'REQUEST_RECEIVED', connection });
 
     res.status(201).json({ success: true, message: 'Connection request sent.', connection });
   } catch (err) {
@@ -166,6 +186,12 @@ exports.acceptRequest = async (req, res, next) => {
     const accepterProfile = await Profile.findOne({ user: req.user.id });
     const accepterName = accepterProfile ? accepterProfile.fullName : 'Someone';
 
+    // Mark incoming connection request notification as read
+    await Notification.updateMany(
+      { recipient: req.user.id, 'data.connectionId': connection._id },
+      { isRead: true }
+    );
+
     // Send notification to requester
     await sendNotification(req, {
       recipient: connection.requester,
@@ -178,10 +204,10 @@ exports.acceptRequest = async (req, res, next) => {
 
     // Notify both users in real-time
     const io = req.app.get('io');
-    if (io) {
-      io.to(connection.requester.toString()).emit('connection_updated', { type: 'REQUEST_ACCEPTED', connection });
-      io.to(connection.recipient.toString()).emit('connection_updated', { type: 'REQUEST_ACCEPTED', connection });
-    }
+    emitConnectionUpdate(io, connection.recipient, connection.requester, {
+      type: 'REQUEST_ACCEPTED',
+      connection,
+    });
 
     res.status(200).json({ success: true, message: 'Connection request accepted.', connection });
   } catch (err) {
@@ -205,6 +231,18 @@ exports.rejectRequest = async (req, res, next) => {
 
     connection.status = 'rejected';
     await connection.save();
+
+    // Mark notification as read
+    await Notification.updateMany(
+      { recipient: req.user.id, 'data.connectionId': connection._id },
+      { isRead: true }
+    );
+
+    const io = req.app.get('io');
+    emitConnectionUpdate(io, connection.recipient, connection.requester, {
+      type: 'REQUEST_REJECTED',
+      connectionId: req.params.id,
+    });
 
     res.status(200).json({ success: true, message: 'Connection request rejected.', connection });
   } catch (err) {
@@ -230,9 +268,10 @@ exports.cancelRequest = async (req, res, next) => {
     await connection.deleteOne();
 
     const io = req.app.get('io');
-    if (io) {
-      io.to(recipientId).emit('connection_updated', { type: 'REQUEST_CANCELLED', connectionId: req.params.id });
-    }
+    emitConnectionUpdate(io, recipientId, req.user.id, {
+      type: 'REQUEST_CANCELLED',
+      connectionId: req.params.id,
+    });
 
     res.status(200).json({ success: true, message: 'Connection request cancelled.' });
   } catch (err) {
@@ -261,9 +300,10 @@ exports.removeConnection = async (req, res, next) => {
     await connection.deleteOne();
 
     const io = req.app.get('io');
-    if (io) {
-      io.to(userId).emit('connection_updated', { type: 'CONNECTION_REMOVED', userId: req.user.id });
-    }
+    emitConnectionUpdate(io, userId, req.user.id, {
+      type: 'CONNECTION_REMOVED',
+      userId: req.user.id,
+    });
 
     res.status(200).json({ success: true, message: 'Connection removed.' });
   } catch (err) {

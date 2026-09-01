@@ -212,7 +212,9 @@ const Navbar = () => {
               <Bell className="w-3.5 h-3.5" />
               <span>Alerts</span>
               {unreadCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900 absolute top-1 right-1" />
+                <span className="px-1.5 py-0.2 min-w-[16px] h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-slate-950 absolute -top-1 -right-1 shadow-md animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
               )}
             </Link>
 

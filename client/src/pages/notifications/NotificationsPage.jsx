@@ -12,6 +12,10 @@ import {
   Volume2,
   VolumeX,
   Play,
+  Check,
+  X,
+  Repeat2,
+  Clock,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '../../context/NotificationContext';
@@ -26,6 +30,8 @@ const NotificationsPage = () => {
     soundEnabled,
     toggleSound,
     playChime,
+    handleAcceptConnection,
+    handleRejectConnection,
   } = useNotifications();
 
   const getNotificationIcon = (type) => {
@@ -36,8 +42,9 @@ const NotificationsPage = () => {
       case 'post_like':
         return <ThumbsUp className="w-4 h-4 text-pro-400" />;
       case 'post_comment':
-      case 'new_message':
         return <MessageCircle className="w-4 h-4 text-emerald-400" />;
+      case 'post_repost':
+        return <Repeat2 className="w-4 h-4 text-indigo-400" />;
       case 'skill_endorsement':
         return <Star className="w-4 h-4 text-amber-400 fill-amber-400" />;
       case 'job_application':
@@ -58,7 +65,7 @@ const NotificationsPage = () => {
             <span>Notifications</span>
           </h1>
           <p className="text-xs text-slate-300 mt-0.5">
-            {unreadCount > 0 ? `${unreadCount} unread updates` : "You're all caught up!"}
+            {unreadCount > 0 ? `${unreadCount} unread update(s)` : "You're all caught up!"}
           </p>
         </div>
 
@@ -101,42 +108,102 @@ const NotificationsPage = () => {
       </div>
 
       {/* Notifications Stream */}
-      <div className="liquid-glass divide-y divide-white/10 rounded-3xl overflow-hidden border border-white/15">
+      <div className="liquid-glass divide-y divide-white/10 rounded-3xl overflow-hidden border border-white/15 shadow-2xl backdrop-blur-xl">
         {notifications.length > 0 ? (
           notifications.map((notif) => {
             const sender = notif.sender?.profile || {};
-            const senderName = sender.fullName || 'Someone';
+            const senderName = sender.fullName || 'CareerLink Member';
+            const senderHeadline = sender.headline || '';
+            const senderAvatar = sender.avatar;
+            const senderId = sender._id || notif.sender?._id || notif.sender;
+            const isConnRequest = notif.type === 'connection_request';
+            const connectionId = notif.data?.connectionId;
+
             return (
               <div
                 key={notif._id}
                 onClick={() => !notif.isRead && markAsRead(notif._id)}
-                className={`p-4 flex items-start gap-3.5 transition-colors cursor-pointer ${
+                className={`p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
                   notif.isRead
                     ? 'bg-white/5 hover:bg-white/10'
                     : 'bg-pro-950/40 hover:bg-pro-950/60 border-l-4 border-l-pro-500'
                 }`}
               >
-                <div className="p-2 rounded-xl bg-white/10 border border-white/10 shadow-xs shrink-0">
-                  {getNotificationIcon(notif.type)}
+                <div className="flex items-start gap-3.5 overflow-hidden flex-1">
+                  {/* Sender Avatar or Type Icon */}
+                  {senderAvatar ? (
+                    <Link to={`/profile/${senderId}`} className="shrink-0 group">
+                      <Avatar
+                        src={senderAvatar}
+                        alt={senderName}
+                        size="md"
+                        className="ring-2 ring-white/20 group-hover:scale-105 transition-transform"
+                      />
+                    </Link>
+                  ) : (
+                    <div className="p-2.5 rounded-2xl bg-white/10 border border-white/10 shadow-xs shrink-0">
+                      {getNotificationIcon(notif.type)}
+                    </div>
+                  )}
+
+                  <div className="overflow-hidden flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h4 className="text-xs font-black text-white truncate">
+                        {notif.title || 'Notification'}
+                      </h4>
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {notif.createdAt
+                          ? formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })
+                          : ''}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-200 mt-0.5 leading-relaxed font-medium">
+                      {notif.message}
+                    </p>
+
+                    {senderHeadline && isConnRequest && (
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                        {senderHeadline}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h4 className="text-xs font-bold text-white truncate">{notif.title || 'Notification'}</h4>
-                    <span className="text-[10px] text-slate-400 shrink-0">
-                      {notif.createdAt ? formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true }) : ''}
-                    </span>
+                {/* Direct Action Buttons for Connection Requests */}
+                {isConnRequest && connectionId && (
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center pt-2 sm:pt-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAcceptConnection(connectionId, notif._id);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-pro-600 hover:bg-pro-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-pro-600/30 transition-all hover:scale-105"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Accept</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRejectConnection(connectionId, notif._id);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1 border border-white/15 transition-all"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Ignore</span>
+                    </button>
                   </div>
-                  <p className="text-xs text-slate-200 mt-0.5">{notif.message}</p>
-                </div>
+                )}
               </div>
             );
           })
         ) : (
           <div className="p-12 text-center text-slate-400">
-            <Bell className="w-8 h-8 mx-auto mb-2 text-slate-500" />
-            <p className="font-bold text-slate-200 text-sm">No notifications</p>
-            <p className="text-xs text-slate-400 mt-0.5">You're all caught up.</p>
+            <Bell className="w-10 h-10 mx-auto mb-3 text-slate-500 opacity-60" />
+            <p className="font-bold text-slate-200 text-sm">No notifications yet</p>
+            <p className="text-xs text-slate-400 mt-1">You're completely up to date.</p>
           </div>
         )}
       </div>

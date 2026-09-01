@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const [socket, setSocket] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
 
@@ -24,14 +24,25 @@ export const SocketProvider = ({ children }) => {
         ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
         : '/');
 
+    const effectiveUserId = (user.id || user._id || '').toString();
+    const storedToken = token || localStorage.getItem('careerlink_token') || '';
+
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 8,
       withCredentials: true,
+      auth: {
+        token: storedToken,
+      },
+      query: {
+        token: storedToken,
+        userId: effectiveUserId,
+      },
     });
 
     newSocket.on('connect', () => {
-      newSocket.emit('join', user.id || user._id);
+      console.log('[Socket.IO] Connected to backend server:', socketUrl);
+      newSocket.emit('join', effectiveUserId);
     });
 
     setSocket(newSocket);
@@ -39,7 +50,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       newSocket.disconnect();
     };
-  }, [isAuthenticated, user?.id, user?._id]);
+  }, [isAuthenticated, user?.id, user?._id, token]);
 
   return (
     <SocketContext.Provider value={{ socket, onlineUsers }}>
