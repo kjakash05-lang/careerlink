@@ -82,12 +82,12 @@ exports.updateProfile = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Profile not found.' });
     }
 
-    if (firstName) profile.firstName = firstName;
-    if (lastName) profile.lastName = lastName;
-    if (headline !== undefined) profile.headline = headline;
+    if (firstName) profile.firstName = firstName.trim();
+    if (lastName) profile.lastName = lastName.trim();
+    if (headline !== undefined) profile.headline = headline.trim();
     if (about !== undefined) profile.about = about;
-    if (location !== undefined) profile.location = location;
-    if (phone !== undefined) profile.phone = phone;
+    if (location !== undefined) profile.location = location.trim();
+    if (phone !== undefined) profile.phone = phone.trim();
     if (avatar !== undefined) profile.avatar = avatar;
     if (coverImage !== undefined) profile.coverImage = coverImage;
     if (preferredWorkMode) profile.preferredWorkMode = preferredWorkMode;
@@ -95,34 +95,47 @@ exports.updateProfile = async (req, res, next) => {
 
     await profile.save();
 
-    res.status(200).json({ success: true, profile });
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
+    res.status(200).json({
+      success: true,
+      profile: populatedProfile,
+      skills: populatedProfile.skills,
+      education: populatedProfile.education,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Add Experience
+// @desc    Add Experience (Legacy Support)
 // @route   POST /api/profile/experience
 // @access  Private
 exports.addExperience = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.experience.unshift(req.body);
-    await profile.save();
+    if (profile) {
+      profile.experience.unshift(req.body);
+      await profile.save();
+    }
     res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Delete Experience
+// @desc    Delete Experience (Legacy Support)
 // @route   DELETE /api/profile/experience/:expId
 // @access  Private
 exports.deleteExperience = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.experience = profile.experience.filter((exp) => exp._id.toString() !== req.params.expId);
-    await profile.save();
+    if (profile) {
+      profile.experience = profile.experience.filter((exp) => exp._id.toString() !== req.params.expId);
+      await profile.save();
+    }
     res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
@@ -135,9 +148,31 @@ exports.deleteExperience = async (req, res, next) => {
 exports.addEducation = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.education.unshift(req.body);
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found.' });
+    }
+
+    const { school, degree, fieldOfStudy, startDate, endDate, description } = req.body;
+    profile.education.unshift({
+      school: school?.trim(),
+      degree: degree?.trim(),
+      fieldOfStudy: fieldOfStudy?.trim() || '',
+      startDate: startDate?.trim() || '',
+      endDate: endDate?.trim() || '',
+      description: description?.trim() || '',
+    });
+
     await profile.save();
-    res.status(200).json({ success: true, profile });
+
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
+    res.status(200).json({
+      success: true,
+      profile: populatedProfile,
+      education: populatedProfile.education,
+    });
   } catch (err) {
     next(err);
   }
@@ -149,9 +184,22 @@ exports.addEducation = async (req, res, next) => {
 exports.deleteEducation = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found.' });
+    }
+
     profile.education = profile.education.filter((edu) => edu._id.toString() !== req.params.eduId);
     await profile.save();
-    res.status(200).json({ success: true, profile });
+
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
+    res.status(200).json({
+      success: true,
+      profile: populatedProfile,
+      education: populatedProfile.education,
+    });
   } catch (err) {
     next(err);
   }
@@ -168,15 +216,28 @@ exports.addSkill = async (req, res, next) => {
     }
 
     const profile = await Profile.findOne({ user: req.user.id });
-    const exists = profile.skills.some((s) => s.name.toLowerCase() === name.trim().toLowerCase());
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found.' });
+    }
+
+    const cleanName = name.trim();
+    const exists = profile.skills.some((s) => s.name.toLowerCase() === cleanName.toLowerCase());
     if (exists) {
       return res.status(400).json({ success: false, message: 'Skill already exists on your profile.' });
     }
 
-    profile.skills.push({ name: name.trim(), endorsements: [] });
+    profile.skills.push({ name: cleanName, endorsements: [] });
     await profile.save();
 
-    res.status(200).json({ success: true, profile });
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
+    res.status(200).json({
+      success: true,
+      profile: populatedProfile,
+      skills: populatedProfile.skills,
+    });
   } catch (err) {
     next(err);
   }
@@ -188,9 +249,22 @@ exports.addSkill = async (req, res, next) => {
 exports.removeSkill = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found.' });
+    }
+
     profile.skills = profile.skills.filter((s) => s._id.toString() !== req.params.skillId);
     await profile.save();
-    res.status(200).json({ success: true, profile });
+
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
+    res.status(200).json({
+      success: true,
+      profile: populatedProfile,
+      skills: populatedProfile.skills,
+    });
   } catch (err) {
     next(err);
   }
@@ -218,21 +292,16 @@ exports.endorseSkill = async (req, res, next) => {
 
     // Check if user already endorsed
     const alreadyEndorsed = skill.endorsements.some(
-      (e) => e.user.toString() === req.user.id.toString()
+      (e) => (e.user?._id || e.user || e.user?.id).toString() === req.user.id.toString()
     );
 
     if (alreadyEndorsed) {
-      // Toggle unendorse
       skill.endorsements = skill.endorsements.filter(
-        (e) => e.user.toString() !== req.user.id.toString()
+        (e) => (e.user?._id || e.user || e.user?.id).toString() !== req.user.id.toString()
       );
     } else {
-      skill.endorsements.push({
-        user: req.user.id,
-        endorsedAt: new Date(),
-      });
+      skill.endorsements.push({ user: req.user.id, endorsedAt: new Date() });
 
-      // Send notification to profile owner
       const endorserProfile = await Profile.findOne({ user: req.user.id });
       await Notification.create({
         recipient: profile.user,
@@ -246,133 +315,92 @@ exports.endorseSkill = async (req, res, next) => {
 
     await profile.save();
 
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
     res.status(200).json({
       success: true,
       endorsed: !alreadyEndorsed,
       endorsementsCount: skill.endorsements.length,
-      profile,
+      profile: populatedProfile,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Add Certification
-// @route   POST /api/profile/certifications
-// @access  Private
+// @desc    Add Certification (Legacy Support)
 exports.addCertification = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.certifications.unshift(req.body);
-    await profile.save();
+    if (profile) {
+      profile.certifications.unshift(req.body);
+      await profile.save();
+    }
     res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Delete Certification
-// @route   DELETE /api/profile/certifications/:certId
-// @access  Private
+// @desc    Delete Certification (Legacy Support)
 exports.deleteCertification = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.certifications = profile.certifications.filter((c) => c._id.toString() !== req.params.certId);
-    await profile.save();
+    if (profile) {
+      profile.certifications = profile.certifications.filter((c) => c._id.toString() !== req.params.certId);
+      await profile.save();
+    }
     res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Add Project
-// @route   POST /api/profile/projects
-// @access  Private
+// @desc    Add Project (Legacy Support)
 exports.addProject = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.projects.unshift(req.body);
-    await profile.save();
+    if (profile) {
+      profile.projects.unshift(req.body);
+      await profile.save();
+    }
     res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Delete Project
-// @route   DELETE /api/profile/projects/:projectId
-// @access  Private
+// @desc    Delete Project (Legacy Support)
 exports.deleteProject = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    profile.projects = profile.projects.filter((p) => p._id.toString() !== req.params.projectId);
-    await profile.save();
+    if (profile) {
+      profile.projects = profile.projects.filter((p) => p._id.toString() !== req.params.projectId);
+      await profile.save();
+    }
     res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Upload / Replace Resume PDF
-// @route   POST /api/profile/resume
-// @access  Private
+// @desc    Upload / Replace Resume PDF (Legacy Support)
 exports.uploadResume = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload a PDF resume file.' });
-    }
-
     const profile = await Profile.findOne({ user: req.user.id });
-    if (!profile) {
-      return res.status(404).json({ success: false, message: 'Profile not found.' });
-    }
-
-    // Delete old resume file if existed in Cloudinary
-    if (profile.resume && profile.resume.publicId) {
-      await deleteFile(profile.resume.publicId, 'raw');
-    }
-
-    const uploadResult = await uploadFile(req.file.path, 'prolink/resumes', 'raw');
-
-    profile.resume = {
-      url: uploadResult.url,
-      publicId: uploadResult.publicId,
-      fileName: req.file.originalname,
-      fileSize: req.file.size,
-      uploadDate: new Date(),
-    };
-
-    await profile.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Resume uploaded successfully.',
-      resume: profile.resume,
-      profile,
-    });
+    res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Delete Resume
-// @route   DELETE /api/profile/resume
-// @access  Private
+// @desc    Delete Resume (Legacy Support)
 exports.deleteResume = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
-    if (!profile) {
-      return res.status(404).json({ success: false, message: 'Profile not found.' });
-    }
-
-    if (profile.resume && profile.resume.publicId) {
-      await deleteFile(profile.resume.publicId, 'raw');
-    }
-
-    profile.resume = undefined;
-    await profile.save();
-
-    res.status(200).json({ success: true, message: 'Resume deleted successfully.', profile });
+    res.status(200).json({ success: true, profile });
   } catch (err) {
     next(err);
   }
@@ -396,18 +424,22 @@ exports.uploadAvatar = async (req, res, next) => {
     profile.avatar = uploadResult.url;
     await profile.save();
 
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
     res.status(200).json({
       success: true,
-      message: 'Profile picture updated successfully.',
+      message: 'Avatar uploaded successfully.',
       avatar: profile.avatar,
-      profile,
+      profile: populatedProfile,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Remove Profile Avatar Image (Reset to default)
+// @desc    Remove Profile Avatar (Reset to Initials)
 // @route   DELETE /api/profile/avatar
 // @access  Private
 exports.removeAvatar = async (req, res, next) => {
@@ -417,22 +449,24 @@ exports.removeAvatar = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Profile not found.' });
     }
 
-    // Default generated avatar using UI Avatars
     profile.avatar = '';
     await profile.save();
 
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
     res.status(200).json({
       success: true,
-      message: 'Profile picture removed.',
-      avatar: '',
-      profile,
+      message: 'Avatar removed.',
+      profile: populatedProfile,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Upload / Replace Profile Cover Image
+// @desc    Upload / Replace Cover Banner Image
 // @route   POST /api/profile/cover
 // @access  Private
 exports.uploadCover = async (req, res, next) => {
@@ -450,18 +484,22 @@ exports.uploadCover = async (req, res, next) => {
     profile.coverImage = uploadResult.url;
     await profile.save();
 
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
     res.status(200).json({
       success: true,
-      message: 'Cover banner updated successfully.',
+      message: 'Cover banner uploaded successfully.',
       coverImage: profile.coverImage,
-      profile,
+      profile: populatedProfile,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// @desc    Remove Profile Cover Image
+// @desc    Remove Cover Banner
 // @route   DELETE /api/profile/cover
 // @access  Private
 exports.removeCover = async (req, res, next) => {
@@ -474,11 +512,14 @@ exports.removeCover = async (req, res, next) => {
     profile.coverImage = '';
     await profile.save();
 
+    const populatedProfile = await Profile.findById(profile._id)
+      .populate('user', 'email role createdAt')
+      .populate('skills.endorsements.user', 'email profile');
+
     res.status(200).json({
       success: true,
       message: 'Cover banner removed.',
-      coverImage: '',
-      profile,
+      profile: populatedProfile,
     });
   } catch (err) {
     next(err);

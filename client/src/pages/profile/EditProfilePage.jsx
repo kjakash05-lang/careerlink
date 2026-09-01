@@ -7,8 +7,6 @@ import {
   GraduationCap,
   Award,
   ArrowLeft,
-  CheckCircle2,
-  AlertCircle,
   Camera,
   UploadCloud,
   Check,
@@ -84,26 +82,26 @@ const EditProfilePage = () => {
   const navigate = useNavigate();
 
   // Basic Info Form State
-  const [firstName, setFirstName] = useState(profile?.firstName || '');
-  const [lastName, setLastName] = useState(profile?.lastName || '');
-  const [headline, setHeadline] = useState(profile?.headline || '');
-  const [location, setLocation] = useState(profile?.location || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [headline, setHeadline] = useState('');
+  const [location, setLocation] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Skills State
-  const [skills, setSkills] = useState(profile?.skills || []);
+  const [skills, setSkills] = useState([]);
   const [newSkillName, setNewSkillName] = useState('');
 
   // Education Modal & State
-  const [educations, setEducations] = useState(profile?.education || []);
+  const [educations, setEducations] = useState([]);
   const [eduModalOpen, setEduModalOpen] = useState(false);
   const [eduSchool, setEduSchool] = useState('');
   const [eduDegree, setEduDegree] = useState('');
   const [eduField, setEduField] = useState('');
   const [eduStartDate, setEduStartDate] = useState('');
   const [eduEndDate, setEduEndDate] = useState('');
-  const [eduGrade, setEduGrade] = useState('');
+  const [eduDescription, setEduDescription] = useState('');
 
   // Photo & Banner Modals
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
@@ -128,6 +126,7 @@ const EditProfilePage = () => {
     }
   }, [profile]);
 
+  // Save Basic Info
   const handleSaveBasicInfo = async (e) => {
     e.preventDefault();
     setIsSaving(true);
@@ -143,7 +142,7 @@ const EditProfilePage = () => {
       const res = await profileService.updateProfile(payload);
       if (res.success && res.profile) {
         updateProfileState(res.profile);
-        showToast('Profile information saved successfully!', 'success');
+        showToast('Basic info saved successfully!', 'success');
       }
     } catch (err) {
       showToast(err.message || 'Failed to update profile info', 'error');
@@ -194,7 +193,7 @@ const EditProfilePage = () => {
         const res = await profileService.uploadAvatar(formData);
         if (res.success && res.profile) {
           updateProfileState(res.profile);
-          showToast('Profile photo uploaded!', 'success');
+          showToast('Profile photo uploaded successfully!', 'success');
           setAvatarModalOpen(false);
           setUploadFile(null);
           setPreviewImage(null);
@@ -268,11 +267,14 @@ const EditProfilePage = () => {
     if (!newSkillName.trim()) return;
     try {
       const res = await profileService.addSkill(newSkillName.trim());
-      if (res.success && res.skills) {
-        setSkills(res.skills);
-        updateProfileState({ ...profile, skills: res.skills });
+      if (res.success) {
+        const updatedSkills = res.skills || res.profile?.skills || [];
+        setSkills(updatedSkills);
+        if (res.profile) {
+          updateProfileState(res.profile);
+        }
         setNewSkillName('');
-        showToast(`Skill "${newSkillName.trim()}" added & reflected on your profile!`, 'success');
+        showToast(`Skill "${newSkillName.trim()}" added & reflected below your profile picture!`, 'success');
       }
     } catch (err) {
       showToast(err.message || 'Failed to add skill', 'error');
@@ -282,9 +284,12 @@ const EditProfilePage = () => {
   const handleDeleteSkill = async (skillId) => {
     try {
       const res = await profileService.removeSkill(skillId);
-      if (res.success && res.skills) {
-        setSkills(res.skills);
-        updateProfileState({ ...profile, skills: res.skills });
+      if (res.success) {
+        const updatedSkills = res.skills || res.profile?.skills || [];
+        setSkills(updatedSkills);
+        if (res.profile) {
+          updateProfileState(res.profile);
+        }
         showToast('Skill removed', 'info');
       }
     } catch (err) {
@@ -292,7 +297,7 @@ const EditProfilePage = () => {
     }
   };
 
-  // Education Management
+  // Education Management (Without CGPA)
   const handleAddEducation = async (e) => {
     e.preventDefault();
     if (!eduSchool.trim() || !eduDegree.trim()) {
@@ -307,11 +312,14 @@ const EditProfilePage = () => {
         fieldOfStudy: eduField.trim(),
         startDate: eduStartDate.trim(),
         endDate: eduEndDate.trim(),
-        grade: eduGrade.trim(),
+        description: eduDescription.trim(),
       });
-      if (res.success && res.education) {
-        setEducations(res.education);
-        updateProfileState({ ...profile, education: res.education });
+      if (res.success) {
+        const updatedEdus = res.education || res.profile?.education || [];
+        setEducations(updatedEdus);
+        if (res.profile) {
+          updateProfileState(res.profile);
+        }
         showToast('Education credential added!', 'success');
         setEduModalOpen(false);
         setEduSchool('');
@@ -319,7 +327,7 @@ const EditProfilePage = () => {
         setEduField('');
         setEduStartDate('');
         setEduEndDate('');
-        setEduGrade('');
+        setEduDescription('');
       }
     } catch (err) {
       showToast(err.message || 'Failed to add education', 'error');
@@ -329,9 +337,12 @@ const EditProfilePage = () => {
   const handleDeleteEducation = async (eduId) => {
     try {
       const res = await profileService.removeEducation(eduId);
-      if (res.success && res.education) {
-        setEducations(res.education);
-        updateProfileState({ ...profile, education: res.education });
+      if (res.success) {
+        const updatedEdus = res.education || res.profile?.education || [];
+        setEducations(updatedEdus);
+        if (res.profile) {
+          updateProfileState(res.profile);
+        }
         showToast('Education entry removed', 'info');
       }
     } catch (err) {
@@ -516,7 +527,7 @@ const EditProfilePage = () => {
               <span>Skills & Technologies</span>
             </h2>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Skills you add here will immediately reflect directly under your profile photo.
+              Skills added here reflect immediately directly under your profile photo.
             </p>
           </div>
           <span className="text-xs font-bold text-pro-300">{skills.length} skills added</span>
@@ -567,7 +578,7 @@ const EditProfilePage = () => {
         )}
       </div>
 
-      {/* 4. Education Background */}
+      {/* 4. Education Background (Without CGPA) */}
       <div id="education" className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
@@ -597,7 +608,7 @@ const EditProfilePage = () => {
                     {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {edu.startDate} – {edu.endDate} {edu.grade ? `· Grade: ${edu.grade}` : ''}
+                    {edu.startDate} – {edu.endDate}
                   </p>
                 </div>
                 <button
@@ -842,7 +853,7 @@ const EditProfilePage = () => {
       </Modal>
 
       {/* ======================================================== */}
-      {/* 7. ADD EDUCATION MODAL */}
+      {/* 7. ADD EDUCATION MODAL (WITHOUT CGPA) */}
       {/* ======================================================== */}
       <Modal
         isOpen={eduModalOpen}
@@ -886,7 +897,7 @@ const EditProfilePage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-200 mb-1">Start Year</label>
               <input
@@ -905,16 +916,6 @@ const EditProfilePage = () => {
                 onChange={(e) => setEduEndDate(e.target.value)}
                 className="pro-input text-xs"
                 placeholder="e.g. 2026"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-200 mb-1">Grade / CGPA</label>
-              <input
-                type="text"
-                value={eduGrade}
-                onChange={(e) => setEduGrade(e.target.value)}
-                className="pro-input text-xs"
-                placeholder="e.g. 8.9 / 10"
               />
             </div>
           </div>

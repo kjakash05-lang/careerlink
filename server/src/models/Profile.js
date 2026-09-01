@@ -7,7 +7,6 @@ const EducationSchema = new mongoose.Schema({
   startDate: { type: String },
   endDate: { type: String },
   current: { type: Boolean, default: false },
-  grade: { type: String },
   description: { type: String },
 });
 

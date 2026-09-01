@@ -714,7 +714,7 @@ const ProfilePage = () => {
                       {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
                     </p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      {edu.startDate} – {edu.endDate} {edu.grade ? `· Grade: ${edu.grade}` : ''}
+                      {edu.startDate} – {edu.endDate}
                     </p>
                   </div>
                 ))}
