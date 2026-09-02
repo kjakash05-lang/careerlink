@@ -188,8 +188,8 @@ const startServer = async () => {
   await connectDB();
   const { checkAndSeed } = require('./seeds/autoSeed');
   await checkAndSeed();
-  server.listen(PORT, () => {
-    console.log(`[CareerLink Server] Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[CareerLink Server] Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT} (0.0.0.0)`);
   });
 };
 
