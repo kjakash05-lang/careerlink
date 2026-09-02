@@ -336,7 +336,7 @@ const Navbar = () => {
                     {isAuthenticated && (
                       <>
                         <Link
-                          to={`/profile/${profile?._id || user?.id}`}
+                          to="/profile"
                           onClick={() => setProfileDropdownOpen(false)}
                           className="flex items-center gap-2.5 p-2 rounded-xl text-slate-100 hover:bg-white/10 hover:text-white transition-colors font-medium"
                         >

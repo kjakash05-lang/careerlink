@@ -117,8 +117,11 @@ const AppContent = () => {
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Profiles */}
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/me" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
           <Route path="/profile/:identifier" element={<ProfilePage />} />
+          <Route path="/in" element={<ProfilePage />} />
           <Route path="/in/:id" element={<ProfilePage />} />
           <Route path="/in/:identifier" element={<ProfilePage />} />
           <Route

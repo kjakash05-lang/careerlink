@@ -124,26 +124,37 @@ const ProfilePage = () => {
 
   const params = useParams();
   const rawId = params.id || params.identifier;
-  const targetId = (rawId && rawId !== 'undefined' && rawId !== '[object Object]')
-    ? rawId
-    : (currentUser?.profile?._id || currentUser?.id || currentUser?._id);
 
   const targetUserId = profile?.user?._id || profile?.user;
   const currentUserId = currentUser?.id || currentUser?._id;
   const isOwnProfile =
     Boolean(currentUser && profile && (
       (currentUserId && targetUserId && currentUserId.toString() === targetUserId.toString()) ||
-      (currentUser.profile?._id && profile._id && currentUser.profile._id.toString() === profile._id.toString())
+      (currentUser.profile?._id && profile._id && currentUser.profile._id.toString() === profile._id.toString()) ||
+      (!rawId || rawId === 'me')
     ));
 
   // Fetch Profile & Relationship Status
   useEffect(() => {
+    let isMounted = true;
+
     const fetchProfileData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await profileService.getProfile(targetId);
-        if (res.success && res.profile) {
+        let res = null;
+
+        // If target ID or slug is specified, fetch by ID/slug
+        if (rawId && rawId !== 'me' && rawId !== 'undefined' && rawId !== '[object Object]') {
+          res = await profileService.getProfile(rawId);
+        } else {
+          // Otherwise fetch currently authenticated user's profile
+          res = await profileService.getMyProfile();
+        }
+
+        if (!isMounted) return;
+
+        if (res && res.success && res.profile) {
           setProfile(res.profile);
 
           const profileUid = res.profile.user?._id || res.profile.user;
@@ -153,7 +164,7 @@ const ProfilePage = () => {
           if (currentUser && profileUid && authUid && profileUid.toString() !== authUid.toString()) {
             try {
               const statusRes = await connectionService.getConnectionStatus(profileUid);
-              if (statusRes.success) {
+              if (statusRes.success && isMounted) {
                 setConnectionStatus(statusRes.status);
                 setConnectionId(statusRes.connectionId);
               }
@@ -178,16 +189,21 @@ const ProfilePage = () => {
           setError('Profile not found');
         }
       } catch (err) {
+        if (!isMounted) return;
         setError(err.message || 'Profile not found');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    if (targetId) {
-      fetchProfileData();
-    }
-  }, [targetId, currentUser]);
+    fetchProfileData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [rawId, currentUser]);
 
   // Fetch sidebar data (suggestions, analytics if owner)
   useEffect(() => {
