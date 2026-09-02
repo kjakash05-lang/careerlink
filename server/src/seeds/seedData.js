@@ -877,6 +877,152 @@ const seedDatabase = async () => {
         likesCount: 240,
         sharesCount: 98,
       },
+      // Post 26: WebSockets at Scale
+      {
+        authorIndex: 0,
+        content: `🚀 Scaling Real-Time WebSocket Infrastructure to 100,000 Concurrent Connections: Lessons learned using Node.js, Redis Pub/Sub, and Socket.IO adapter.\n\nKey Architectural Takeaways:\n1. Horizontal Scaling: Never rely on single-node in-memory state; use Redis clusters to broadcast across worker processes.\n2. Heartbeats: Tune pingInterval (25s) and pingTimeout (20s) to reclaim dead socket descriptors fast without dropping mobile clients on spotty cellular connections.\n3. Backpressure: Implement client-side queue buffers so rapid bursts don't overwhelm browser rendering loops.\n\nReal-time architecture is all about graceful degradation. What stack do you use for live sockets? ⚡ #SystemDesign #WebSockets #NodeJS #Redis #Scalability`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 172,
+        sharesCount: 54,
+      },
+      // Post 27: Liquid-Glass Interfaces in React
+      {
+        authorIndex: 1,
+        content: `🎨 Building Fluid Liquid-Glass Interfaces in React 19: Why glassmorphism with backdrop-blur, CSS subgrid, and Tailwind CSS creates such an immersive developer experience.\n\nThree rules we follow on CareerLink:\n• Layered depth: Use rgba(255, 255, 255, 0.05) with 1px border-white/10 for subtle glassy separation.\n• Hardware acceleration: Apply will-change-transform on animated modals to keep 60fps on mobile.\n• High contrast accessibility: Always test white-on-dark contrast ratios with WCAG AAA standards.\n\nForm follows function, but aesthetics inspire joy in daily developer tooling! ✨ #React #Frontend #TailwindCSS #UIUX #Design`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 148,
+        sharesCount: 42,
+      },
+      // Post 28: PostgreSQL vs MongoDB
+      {
+        authorIndex: 0,
+        content: `💡 Why we chose PostgreSQL with JSONB over MongoDB for our latest microservice: The myth that relational databases can't handle flexible schemas is officially outdated.\n\nWith PostgreSQL 16:\n✅ GIN indexes on JSONB fields deliver near-instant lookups on nested dynamic document attributes.\n✅ ACID transactional integrity across relational tables and document payloads.\n✅ Generated columns with expressions bridge the gap between relational modeling and document agility.\n\nPostgres continues to be the Swiss Army Knife of databases. Who else prefers Postgres for hybrid workloads? 🐘 #PostgreSQL #Databases #SoftwareArchitecture #Backend`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 195,
+        sharesCount: 88,
+      },
+      // Post 29: Docker Multi-Stage Builds
+      {
+        authorIndex: 4,
+        content: `⚡ Docker Multi-Stage Builds: How we shrunk our production container images from 1.4GB down to 68MB using alpine and distroless base images.\n\nBefore:\n• Node.js full Debian image with python build tools and devDependencies: 1.4GB.\n\nAfter Multi-Stage Pipeline:\n1. Stage 1 (Builder): Compile typescript, run tests, build static bundles.\n2. Stage 2 (Runner): Copy only ./dist and production node_modules onto gcr.io/distroless/nodejs20-debian12.\n\nBenefits:\n• Fast cold deployments (Kubernetes pulls 68MB in 1.2s).\n• Zero shell access, eliminating 95% of common CVE attack vectors.\n\nSmall containers = safe containers! 🐳 #Docker #DevOps #Security #Containers #Kubernetes`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1607799279861-4dd421887fb3?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 164,
+        sharesCount: 71,
+      },
+      // Post 30: Hiring Leadership Roles
+      {
+        authorIndex: 2,
+        content: `📢 NovaTech Systems is expanding our Engineering leadership team! We are looking for:\n\n✨ Principal Cloud Architect (AWS, Kubernetes, Terraform)\n✨ 2 Staff Full Stack Engineers (React 19, Node.js, Distributed Systems)\n✨ Senior Site Reliability Engineer (Observability, Prometheus, Grafana)\n\nWe offer 100% remote flexibility, $180k-$240k base + equity, and an autonomous engineering culture. Check out our open roles or shoot me a direct message! 🚀 #Hiring #TechJobs #RemoteWork #Engineering`,
+        likesCount: 132,
+        sharesCount: 65,
+      },
+      // Post 31: System Design Notification Service
+      {
+        authorIndex: 0,
+        content: `🌐 System Design 101: Designing a globally distributed Notification Service handling email, push, and SMS with fallback gateways and deduplication.\n\nKey components:\n1. Ingestion API: Validates rate limits and enqueues to Kafka topic partitioned by userId.\n2. Deduplication Engine: Redis distributed lock with TTL to prevent double-sends on network retries.\n3. Template Rendering: Pre-compiled Mustache templates cached in memory.\n4. Provider Router: Primary provider (SendGrid / Twilio / FCM) with automatic circuit-breaker failover to backup providers.\n\nReliable delivery at scale requires designing for partial failure. 🛠️ #SystemDesign #DistributedSystems #SoftwareArchitecture`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 181,
+        sharesCount: 79,
+      },
+      // Post 32: Vite + React Migration
+      {
+        authorIndex: 1,
+        content: `🛠️ Why Vite + React replaced Create React App everywhere: Cold start in 180ms, Hot Module Replacement (HMR) in 12ms, and seamless rollup bundling.\n\nBy leveraging native ES modules in the browser during development, Vite eliminates bundle compilation on every keystroke. Your dev server stays fast whether you have 10 components or 10,000.\n\nIf you are still on webpack 4 or CRA, migrating will save your team dozens of hours every month! ⚡ #React #Vite #JavaScript #WebDev`,
+        likesCount: 142,
+        sharesCount: 39,
+      },
+      // Post 33: API Design Decion Tree
+      {
+        authorIndex: 0,
+        content: `🧠 The evolution of API Design: REST vs GraphQL vs gRPC. A pragmatic decision tree for software architects in 2026:\n\n• Use REST for public APIs and standard CRUD web interfaces with HTTP caching.\n• Use GraphQL when frontend clients have highly divergent data requirements and want to eliminate over-fetching in single round-trips.\n• Use gRPC with Protocol Buffers for high-throughput internal microservice-to-microservice RPCs where low binary latency and strict typing are king.\n\nRight tool for the right job! What is your default for internal services? ☕ #APIDesign #GraphQL #gRPC #REST #Backend`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 167,
+        sharesCount: 62,
+      },
+      // Post 34: Redis Caching Patterns
+      {
+        authorIndex: 4,
+        content: `📊 Redis Caching Patterns: Cache-Aside vs Write-Through vs Write-Behind.\n\n• Cache-Aside: Application reads from cache first; on miss, loads from DB and updates cache. Perfect for read-heavy workloads.\n• Write-Through: Application writes to cache, and cache synchronously writes to DB. Ensures strong consistency.\n• Write-Behind: Application writes to cache, which asynchronously batches writes to DB. Extreme write throughput, but risks data loss on crash.\n\nAlways set TTLs and implement jitter on expiration timestamps to prevent the thundering herd problem! 💡 #Redis #Caching #DatabasePerformance #Architecture`,
+        likesCount: 153,
+        sharesCount: 57,
+      },
+      // Post 35: Modern React Hooks
+      {
+        authorIndex: 0,
+        content: `💻 5 underrated React hooks every frontend engineer should master in 2026:\n\n1. useSyncExternalStore: Safely subscribe to third-party stores (Redux, Zustand, WebSocket state) without tearing in concurrent rendering.\n2. useDeferredValue: Defer re-rendering expensive UI lists while keeping input typing snappy.\n3. useTransition: Mark non-urgent UI updates so navigation stays responsive under heavy loads.\n4. useId: Generate deterministic, unique accessibility IDs that match across SSR and client hydration.\n5. useActionState: Native form submission state and optimistic mutations with zero boilerplate.\n\nReact has gotten so much better at concurrency. ⚛️ #React #JavaScript #WebDev #Frontend`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 189,
+        sharesCount: 84,
+      },
+      // Post 36: Clean Code Guard Clauses
+      {
+        authorIndex: 1,
+        content: `🎯 Clean Code Tip: Prefer early returns and guard clauses over deeply nested if-else statements.\n\nBefore: 4 levels of indentation, difficult to parse cognitive flow, high cyclomatic complexity.\n\nAfter: Guard clauses at top of function handle error/null conditions and exit immediately. The happy path stays at zero indentation.\n\nYour future self (and your teammates during PR reviews) will thank you! 🧼 #CleanCode #Refactoring #SoftwareEngineering #BestPractices`,
+        likesCount: 136,
+        sharesCount: 48,
+      },
+      // Post 37: Semantic Search with pgvector
+      {
+        authorIndex: 0,
+        content: `🤖 Practical Guide to Semantic Search & Vector Embeddings with pgvector: How we cut query latency from 800ms to 24ms while improving search relevance by 38%.\n\nInstead of running separate vector databases, pgvector lets you store 1536-dimension OpenAI embeddings directly in your PostgreSQL tables. Using HNSW (Hierarchical Navigable Small World) indexing, you get sub-30ms approximate nearest neighbor queries alongside relational joins.\n\nSimplicity beats complexity every time. 🧠 #AI #VectorSearch #PostgreSQL #MachineLearning`,
+        media: [
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80',
+          },
+        ],
+        likesCount: 204,
+        sharesCount: 92,
+      },
+      // Post 38: Kubernetes Resource Optimization
+      {
+        authorIndex: 4,
+        content: `☁️ Kubernetes Resource Optimization: How setting precise CPU requests and limits saved our team $8,500/mo on AWS EKS clusters.\n\nCommon mistake: Setting CPU limits equal to requests, causing aggressive CFS throttling on multi-threaded workloads. Remove CPU limits or set them 3-4x requests, but enforce strict Memory limits to avoid OOMKills.\n\nMonitor with Vertical Pod Autoscaler (VPA) before setting production values! 📉 #Kubernetes #Cloud #AWS #DevOps #FinOps`,
+        likesCount: 161,
+        sharesCount: 66,
+      },
+      // Post 39: Senior Engineer Mindset
+      {
+        authorIndex: 0,
+        content: `🔥 Why Senior Engineers write fewer lines of code: The best code is the code you didn't have to write.\n\nJunior developers often solve problems by writing new abstractions, custom helpers, and complex loops. Senior developers solve problems by deleting code, reusing battle-tested standard libraries, and questioning if the requirement is necessary in the first place.\n\nSimplicity is the ultimate sophistication in software engineering. 💡 #SoftwareEngineering #Architecture #CareerGrowth #CodeQuality`,
+        likesCount: 228,
+        sharesCount: 105,
+      },
     ];
 
     for (const p of rawPosts) {

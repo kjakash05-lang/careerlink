@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Image as ImageIcon,
@@ -16,6 +16,11 @@ import {
   BarChart3,
   Bookmark,
   Award,
+  RefreshCw,
+  Flame,
+  Code,
+  Layers,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { postService, jobService } from '../services/api';
@@ -37,18 +42,25 @@ const HomePage = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [createPostOpen, setCreatePostOpen] = useState(false);
+  const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'tech' | 'cloud' | 'career' | 'hiring'
+
+  const bottomSentinelRef = useRef(null);
 
   const fetchFeedPosts = async (pageNum = 1, append = false) => {
     if (pageNum === 1) setIsLoading(true);
     else setIsLoadingMore(true);
 
     try {
-      const res = await postService.getPosts({ page: pageNum, limit: 12 });
+      const res = await postService.getPosts({ page: pageNum, limit: 20 });
       if (res.success) {
         if (append) {
-          setPosts((prev) => [...prev, ...res.posts]);
+          setPosts((prev) => {
+            const existingIds = new Set(prev.map((p) => p._id));
+            const newUnique = (res.posts || []).filter((p) => !existingIds.has(p._id));
+            return [...prev, ...newUnique];
+          });
         } else {
-          setPosts(res.posts);
+          setPosts(res.posts || []);
         }
         setHasMore(res.page < res.pages);
       }
@@ -87,7 +99,30 @@ const HomePage = () => {
     fetchSidebarData();
   }, [isAuthenticated, profile?.skills]);
 
+  // Infinite Scroll Trigger via IntersectionObserver
+  useEffect(() => {
+    if (!hasMore || isLoading || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchFeedPosts(nextPage, true);
+        }
+      },
+      { threshold: 0.1, rootMargin: '350px' }
+    );
+
+    if (bottomSentinelRef.current) {
+      observer.observe(bottomSentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isLoadingMore, page]);
+
   const handleLoadMore = () => {
+    if (isLoadingMore || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     fetchFeedPosts(nextPage, true);
@@ -95,7 +130,7 @@ const HomePage = () => {
 
   const handlePostCreated = (newPost) => {
     recordEvent('POST_CREATED');
-    setPosts([newPost, ...posts]);
+    setPosts((prev) => [newPost, ...prev]);
   };
 
   const handlePostDeleted = (deletedId) => {
@@ -107,6 +142,25 @@ const HomePage = () => {
       prev.map((p) => (p._id === updatedPost._id ? { ...p, ...updatedPost } : p))
     );
   };
+
+  // Filter posts based on selected category pill
+  const filteredPosts = posts.filter((post) => {
+    if (feedFilter === 'all') return true;
+    const text = (post.content || '').toLowerCase();
+    if (feedFilter === 'tech') {
+      return /react|javascript|typescript|java|python|spring|node|frontend|backend|sql|api|coding|git|bugs|code|benchmark/i.test(text);
+    }
+    if (feedFilter === 'cloud') {
+      return /cloud|aws|docker|kubernetes|microservice|kafka|redis|devops|scale|system|distributed|database|postgres|architecture/i.test(text);
+    }
+    if (feedFilter === 'career') {
+      return /career|milestone|promot|interview|framework|grow|developer|engineer|learn|bootcamp|tips/i.test(text);
+    }
+    if (feedFilter === 'hiring') {
+      return /hiring|hire|role|remote|job|join|equity|salary|position/i.test(text);
+    }
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -254,16 +308,59 @@ const HomePage = () => {
             </div>
           )}
 
+          {/* Feed Controls & Topic Filters */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar flex-1">
+              {[
+                { id: 'all', label: 'All Posts', icon: Flame },
+                { id: 'tech', label: 'Tech & Code', icon: Code },
+                { id: 'cloud', label: 'Architecture & Cloud', icon: Layers },
+                { id: 'career', label: 'Career & Growth', icon: TrendingUp },
+                { id: 'hiring', label: 'Hiring', icon: Briefcase },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = feedFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setFeedFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-pro-600 text-white shadow-md shadow-pro-600/30'
+                        : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-pro-400'}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <span className="text-[11px] text-slate-400 font-medium">
+                {filteredPosts.length} posts
+              </span>
+              <button
+                onClick={() => fetchFeedPosts(1, false)}
+                title="Refresh Live Feed"
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-pro-400' : ''}`} />
+              </button>
+            </div>
+          </div>
+
           {/* Posts Stream */}
           {isLoading ? (
             <div className="space-y-4">
-              {[1, 2, 3].map((n) => (
+              {[1, 2, 3, 4].map((n) => (
                 <div key={n} className="pro-card p-5 animate-pulse bg-slate-800/40 border border-white/10 h-48 rounded-2xl" />
               ))}
             </div>
-          ) : posts.length > 0 ? (
+          ) : filteredPosts.length > 0 ? (
             <div className="space-y-4">
-              {posts.map((post) => (
+              {filteredPosts.map((post) => (
                 <PostCard
                   key={post._id}
                   post={post}
@@ -272,6 +369,9 @@ const HomePage = () => {
                   onPostCreated={handlePostCreated}
                 />
               ))}
+
+              {/* Infinite Scroll Bottom Sentinel */}
+              <div ref={bottomSentinelRef} className="h-4" />
 
               {/* Load More Button */}
               {hasMore && (
@@ -296,17 +396,14 @@ const HomePage = () => {
           ) : (
             <div className="pro-card p-12 text-center border border-white/15">
               <PenSquare className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-white">No posts in your feed yet</h3>
-              <p className="text-xs text-slate-400 mt-1">Be the first to share an engineering milestone or insight with the community!</p>
-              {isAuthenticated && (
-                <button
-                  onClick={() => setCreatePostOpen(true)}
-                  className="pro-btn-primary text-xs py-2 px-4 inline-flex items-center gap-1.5 mt-4"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create First Post</span>
-                </button>
-              )}
+              <h3 className="text-sm font-bold text-white">No posts match this filter</h3>
+              <p className="text-xs text-slate-400 mt-1">Try selecting "All Posts" to see the entire engineering feed.</p>
+              <button
+                onClick={() => setFeedFilter('all')}
+                className="pro-btn-primary text-xs py-2 px-4 inline-flex items-center gap-1.5 mt-4"
+              >
+                <span>View All Posts</span>
+              </button>
             </div>
           )}
         </div>
