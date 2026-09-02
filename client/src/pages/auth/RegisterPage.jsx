@@ -134,10 +134,9 @@ const RegisterPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Last name</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Last name (optional)</label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. Doe"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}

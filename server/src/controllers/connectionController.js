@@ -53,14 +53,25 @@ const sendNotification = async (req, notifData) => {
 exports.getConnectionStatus = async (req, res, next) => {
   try {
     const { userId } = req.params;
-    if (userId === req.user.id.toString()) {
+    let targetUserId = userId;
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      const isUser = await User.exists({ _id: userId });
+      if (!isUser) {
+        const prof = await Profile.findById(userId);
+        if (prof && prof.user) {
+          targetUserId = prof.user.toString();
+        }
+      }
+    }
+
+    if (targetUserId === req.user.id.toString()) {
       return res.status(200).json({ success: true, status: 'SELF' });
     }
 
     const connection = await Connection.findOne({
       $or: [
-        { requester: req.user.id, recipient: userId },
-        { requester: userId, recipient: req.user.id },
+        { requester: req.user.id, recipient: targetUserId },
+        { requester: targetUserId, recipient: req.user.id },
       ],
     });
 
@@ -92,12 +103,20 @@ exports.getConnectionStatus = async (req, res, next) => {
 exports.sendRequest = async (req, res, next) => {
   try {
     const { recipientId } = req.params;
+    let targetRecipientId = recipientId;
+    let recipient = await User.findById(targetRecipientId);
+    if (!recipient && mongoose.Types.ObjectId.isValid(recipientId)) {
+      const prof = await Profile.findById(recipientId);
+      if (prof && prof.user) {
+        targetRecipientId = prof.user.toString();
+        recipient = await User.findById(targetRecipientId);
+      }
+    }
 
-    if (recipientId === req.user.id.toString()) {
+    if (targetRecipientId === req.user.id.toString()) {
       return res.status(400).json({ success: false, message: 'You cannot connect with yourself.' });
     }
 
-    const recipient = await User.findById(recipientId);
     if (!recipient) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
@@ -105,8 +124,8 @@ exports.sendRequest = async (req, res, next) => {
     // Check if an existing connection exists in either direction
     const existing = await Connection.findOne({
       $or: [
-        { requester: req.user.id, recipient: recipientId },
-        { requester: recipientId, recipient: req.user.id },
+        { requester: req.user.id, recipient: targetRecipientId },
+        { requester: targetRecipientId, recipient: req.user.id },
       ],
     });
 

@@ -45,14 +45,39 @@ const buildPersonQuery = async (q) => {
   return { $or: orConditions };
 };
 
+// Helper to normalize user fields according to Phase 6 requirements
+const normalizeUserProfile = (p, connectionStatus = 'NONE', connectionId = null) => {
+  const doc = p.toObject ? p.toObject({ virtuals: true }) : p;
+  const targetUid = (p.user?._id || p.user || p._id).toString();
+  const fullName = p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Member';
+  const profileSlug = p.profileSlug || p.username || targetUid;
+
+  return {
+    ...doc,
+    id: targetUid, // Real MongoDB user._id.toString()
+    userId: targetUid,
+    profileId: p._id.toString(),
+    name: fullName,
+    fullName,
+    username: p.username || profileSlug,
+    profileSlug,
+    profilePicture: p.avatar || '',
+    avatar: p.avatar || '',
+    headline: p.headline || 'CareerLink Member',
+    location: p.location || '',
+    skills: p.skills || [],
+    education: p.education || [],
+    experience: p.experience || [],
+    connectionStatus,
+    connectionId,
+  };
+};
+
 // Helper to attach live connection status to profiles
 const attachConnectionStatuses = async (profiles, currentUserId) => {
   if (!profiles || profiles.length === 0) return [];
   if (!currentUserId) {
-    return profiles.map((p) => {
-      const doc = p.toObject ? p.toObject() : p;
-      return { ...doc, connectionStatus: 'NONE' };
-    });
+    return profiles.map((p) => normalizeUserProfile(p, 'NONE'));
   }
 
   const profileUserIds = profiles
@@ -68,11 +93,10 @@ const attachConnectionStatuses = async (profiles, currentUserId) => {
   });
 
   return profiles.map((p) => {
-    const doc = p.toObject ? p.toObject() : p;
     const targetUid = (p.user?._id || p.user || p._id).toString();
 
     if (targetUid === currentUserId.toString()) {
-      return { ...doc, connectionStatus: 'SELF' };
+      return normalizeUserProfile(p, 'SELF');
     }
 
     const match = connections.find(
@@ -82,22 +106,22 @@ const attachConnectionStatuses = async (profiles, currentUserId) => {
     );
 
     if (!match) {
-      return { ...doc, connectionStatus: 'NONE' };
+      return normalizeUserProfile(p, 'NONE');
     }
 
     if (match.status === 'accepted') {
-      return { ...doc, connectionStatus: 'CONNECTED', connectionId: match._id };
+      return normalizeUserProfile(p, 'CONNECTED', match._id);
     }
 
     if (match.status === 'pending') {
       if (match.requester.toString() === currentUserId.toString()) {
-        return { ...doc, connectionStatus: 'PENDING_SENT', connectionId: match._id };
+        return normalizeUserProfile(p, 'PENDING_SENT', match._id);
       } else {
-        return { ...doc, connectionStatus: 'PENDING_RECEIVED', connectionId: match._id };
+        return normalizeUserProfile(p, 'PENDING_RECEIVED', match._id);
       }
     }
 
-    return { ...doc, connectionStatus: 'NONE' };
+    return normalizeUserProfile(p, 'NONE');
   });
 };
 

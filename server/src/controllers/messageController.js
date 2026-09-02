@@ -1,15 +1,32 @@
+const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Connection = require('../models/Connection');
 const Profile = require('../models/Profile');
+const User = require('../models/User');
 const Notification = require('../models/Notification');
+
+// Resolve User ID if passed Profile ID
+const resolveUserId = async (id) => {
+  if (!id) return null;
+  const strId = id.toString();
+  if (mongoose.Types.ObjectId.isValid(strId)) {
+    const isUser = await User.exists({ _id: strId });
+    if (isUser) return strId;
+    const prof = await Profile.findById(strId);
+    if (prof && prof.user) return prof.user.toString();
+  }
+  return strId;
+};
 
 // Verify that two users are connected
 const areUsersConnected = async (user1Id, user2Id) => {
+  const u1 = await resolveUserId(user1Id);
+  const u2 = await resolveUserId(user2Id);
   const connection = await Connection.findOne({
     $or: [
-      { requester: user1Id, recipient: user2Id },
-      { requester: user2Id, recipient: user1Id },
+      { requester: u1, recipient: u2 },
+      { requester: u2, recipient: u1 },
     ],
     status: 'accepted',
   });
@@ -66,10 +83,10 @@ exports.getConversations = async (req, res, next) => {
 // @access  Private
 exports.getMessagesWithUser = async (req, res, next) => {
   try {
-    const { recipientId } = req.params;
+    const targetRecipientId = await resolveUserId(req.params.recipientId);
 
     // Verify connection status
-    const isConnected = await areUsersConnected(req.user.id, recipientId);
+    const isConnected = await areUsersConnected(req.user.id, targetRecipientId);
     if (!isConnected) {
       return res.status(403).json({
         success: false,
@@ -78,12 +95,12 @@ exports.getMessagesWithUser = async (req, res, next) => {
     }
 
     let conversation = await Conversation.findOne({
-      participants: { $all: [req.user.id, recipientId] },
+      participants: { $all: [req.user.id, targetRecipientId] },
     });
 
     if (!conversation) {
       conversation = await Conversation.create({
-        participants: [req.user.id, recipientId],
+        participants: [req.user.id, targetRecipientId],
       });
     }
 
@@ -116,15 +133,17 @@ exports.getMessagesWithUser = async (req, res, next) => {
 // @access  Private
 exports.sendMessage = async (req, res, next) => {
   try {
-    const recipientId = req.body.recipientId || req.body.recipient;
+    const rawRecipient = req.body.recipientId || req.body.recipient;
     const { content } = req.body;
 
-    if (!recipientId || !content || !content.trim()) {
+    if (!rawRecipient || !content || !content.trim()) {
       return res.status(400).json({ success: false, message: 'Recipient and content are required.' });
     }
 
+    const targetRecipientId = await resolveUserId(rawRecipient);
+
     // Verify connection
-    const isConnected = await areUsersConnected(req.user.id, recipientId);
+    const isConnected = await areUsersConnected(req.user.id, targetRecipientId);
     if (!isConnected) {
       return res.status(403).json({
         success: false,
@@ -133,19 +152,19 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     let conversation = await Conversation.findOne({
-      participants: { $all: [req.user.id, recipientId] },
+      participants: { $all: [req.user.id, targetRecipientId] },
     });
 
     if (!conversation) {
       conversation = await Conversation.create({
-        participants: [req.user.id, recipientId],
+        participants: [req.user.id, targetRecipientId],
       });
     }
 
     const message = await Message.create({
       conversation: conversation._id,
       sender: req.user.id,
-      recipient: recipientId,
+      recipient: targetRecipientId,
       content: content.trim(),
     });
 
@@ -162,7 +181,7 @@ exports.sendMessage = async (req, res, next) => {
     // Emit via Socket.io to user private rooms
     const io = req.app.get('io');
     if (io) {
-      const recId = recipientId.toString();
+      const recId = targetRecipientId.toString();
       const sendId = req.user.id.toString();
       io.to(`user:${recId}`).emit('receive_message', populatedMessage);
       io.to(`user:${recId}`).emit('message:new', populatedMessage);
@@ -178,11 +197,11 @@ exports.sendMessage = async (req, res, next) => {
     // Create notification
     const senderProfile = await Profile.findOne({ user: req.user.id });
     await Notification.create({
-      recipient: recipientId,
+      recipient: targetRecipientId,
       sender: req.user.id,
       type: 'new_message',
       title: 'New Message',
-      message: `${senderProfile ? senderProfile.fullName : 'Someone'}: ${content.slice(0, 40)}${content.length > 40 ? '...' : ''}`,
+      message: `${senderProfile ? senderProfile.fullName : 'Someone'} sent you a message.`,
       data: { conversationId: conversation._id, messageId: message._id },
     });
 

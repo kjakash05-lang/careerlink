@@ -97,7 +97,7 @@ const ProfileSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      required: [true, 'Last name is required'],
+      default: '',
       trim: true,
     },
     headline: {
@@ -193,21 +193,40 @@ ProfileSchema.virtual('completionPercentage').get(function () {
   return Math.min(score, 100);
 });
 
-// Auto-generate username slug and profileSlug if not defined
-ProfileSchema.pre('save', function (next) {
-  if (this.firstName && this.lastName) {
-    const baseSlug = `${this.firstName}-${this.lastName}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
-    if (!this.username) {
-      this.username = baseSlug;
+// Auto-generate unique username slug and profileSlug
+ProfileSchema.pre('save', async function (next) {
+  try {
+    if (!this.profileSlug || !this.username) {
+      let rawName = `${this.firstName || ''} ${this.lastName || ''}`.trim();
+      if (!rawName) rawName = 'member';
+      const baseSlug = rawName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '') || 'member';
+
+      let uniqueSlug = baseSlug;
+      let count = 1;
+      while (true) {
+        const existing = await this.constructor.findOne({
+          _id: { $ne: this._id },
+          $or: [{ profileSlug: uniqueSlug }, { username: uniqueSlug }],
+        });
+        if (!existing) break;
+        count++;
+        uniqueSlug = `${baseSlug}-${count}`;
+      }
+
+      if (!this.username) {
+        this.username = uniqueSlug;
+      }
+      if (!this.profileSlug) {
+        this.profileSlug = uniqueSlug;
+      }
     }
-    if (!this.profileSlug) {
-      this.profileSlug = this.username || baseSlug;
-    }
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 });
 
 // Virtual for clean slug URL

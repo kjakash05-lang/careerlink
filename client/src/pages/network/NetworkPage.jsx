@@ -204,7 +204,7 @@ const NetworkPage = () => {
                   <div className="mb-3 flex justify-center">
                     <Avatar src={p.avatar} alt={name} size="xl" />
                   </div>
-                  <Link to={`/profile/${p._id || u._id}`} className="font-bold text-slate-900 dark:text-white hover:text-pro-600 dark:hover:text-pro-400 text-sm line-clamp-1">
+                  <Link to={`/in/${p.profileSlug || p.username || p._id || u._id}`} className="font-bold text-slate-900 dark:text-white hover:text-pro-600 dark:hover:text-pro-400 text-sm line-clamp-1">
                     {name}
                   </Link>
                   <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
@@ -254,7 +254,7 @@ const NetworkPage = () => {
                   const name = p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'User';
                   return (
                     <div key={req._id} className="py-4 flex items-center justify-between gap-4">
-                      <Link to={`/profile/${p._id || req.requester?._id}`} className="flex items-center gap-3">
+                      <Link to={`/in/${p.profileSlug || p.username || p._id || req.requester?._id}`} className="flex items-center gap-3">
                         <Avatar src={p.avatar} alt={name} size="md" />
                         <div>
                           <p className="font-bold text-sm text-slate-900 dark:text-white hover:text-pro-600">{name}</p>
@@ -301,13 +301,13 @@ const NetworkPage = () => {
                   const name = p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'User';
                   return (
                     <div key={req._id} className="py-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
+                      <Link to={`/in/${p.profileSlug || p.username || p._id || req.recipient?._id}`} className="flex items-center gap-3">
                         <Avatar src={p.avatar} alt={name} size="md" />
                         <div>
-                          <p className="font-bold text-sm text-slate-900 dark:text-white">{name}</p>
+                          <p className="font-bold text-sm text-slate-900 dark:text-white hover:text-pro-600">{name}</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{p.headline}</p>
                         </div>
-                      </div>
+                      </Link>
 
                       <button
                         onClick={() => handleCancelRequest(req._id)}
@@ -347,7 +347,7 @@ const NetworkPage = () => {
                       <div className="flex items-center gap-3 mb-2">
                         <Avatar src={p.avatar} alt={name} size="md" />
                         <div className="overflow-hidden">
-                          <Link to={`/profile/${p._id || u?._id}`} className="font-bold text-slate-900 dark:text-white hover:text-pro-600 text-sm truncate block">
+                          <Link to={`/in/${p.profileSlug || p.username || p._id || u?._id}`} className="font-bold text-slate-900 dark:text-white hover:text-pro-600 text-sm truncate block">
                             {name}
                           </Link>
                           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{p.headline || 'Professional'}</p>
@@ -356,21 +356,31 @@ const NetworkPage = () => {
                       <p className="text-[11px] text-slate-400">{p.location || 'Location'}</p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between gap-2">
                       <Link
-                        to={`/messages?userId=${u?._id || u?.id}`}
-                        className="pro-btn-primary text-xs py-1 px-3 flex items-center gap-1 shadow-xs"
+                        to={`/in/${p.profileSlug || p.username || p._id || u?._id}`}
+                        className="pro-btn-secondary text-xs py-1 px-2.5 flex items-center gap-1"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>Message</span>
+                        <span>View Profile</span>
                       </Link>
 
-                      <button
-                        onClick={() => handleRemoveConnection(u?._id || u?.id)}
-                        className="text-[11px] text-slate-400 hover:text-rose-600 font-medium"
-                      >
-                        Disconnect
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/messages?userId=${u?._id || u?.id}`}
+                          className="pro-btn-primary text-xs py-1 px-3 flex items-center gap-1 shadow-xs"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Message</span>
+                        </Link>
+
+                        <button
+                          onClick={() => handleRemoveConnection(u?._id || u?.id)}
+                          className="text-[11px] text-slate-400 hover:text-rose-600 font-medium"
+                          title="Disconnect"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

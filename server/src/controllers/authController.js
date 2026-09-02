@@ -33,12 +33,21 @@ const sendTokenResponse = (user, profile, statusCode, res) => {
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName, role, headline, location } = req.body;
+    const { email, password, firstName, lastName, name, role, headline, location } = req.body;
 
-    if (!email || !password || !firstName || !lastName) {
+    let finalFirst = (firstName || '').trim();
+    let finalLast = (lastName || '').trim();
+
+    if (!finalFirst && name) {
+      const parts = name.trim().split(/\s+/);
+      finalFirst = parts[0] || '';
+      finalLast = parts.slice(1).join(' ') || '';
+    }
+
+    if (!email || !password || !finalFirst) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email, password, first name, and last name.',
+        message: 'Please provide email, password, and your name.',
       });
     }
 
@@ -64,8 +73,8 @@ exports.register = async (req, res, next) => {
     // Create initial profile
     const profile = await Profile.create({
       user: user._id,
-      firstName,
-      lastName,
+      firstName: finalFirst,
+      lastName: finalLast,
       headline: headline || (assignedRole === 'recruiter' ? 'Talent Acquisition Specialist' : 'Professional'),
       location: location || '',
       avatar: '',
