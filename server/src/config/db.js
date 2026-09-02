@@ -7,7 +7,8 @@ const connectDB = async () => {
 
   if (uri) {
     try {
-      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 2000 });
+      const timeoutMs = process.env.NODE_ENV === 'production' ? 15000 : 3000;
+      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: timeoutMs });
       console.log(`[MongoDB] Connected to Primary Database: ${conn.connection.host}`);
       return conn;
     } catch (err) {

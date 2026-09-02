@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 const { connectDB } = require('./config/db');
 const errorHandler = require('./middleware/error');
@@ -153,6 +154,29 @@ app.get('/api/health', (req, res) => {
     time: new Date().toISOString(),
   });
 });
+
+// Serve static React production build (Single-Service Render Deployment)
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
+const indexHtmlPath = path.join(clientDistPath, 'index.html');
+
+if (fs.existsSync(clientDistPath)) {
+  console.log(`[CareerLink Server] Serving static client build from ${clientDistPath}`);
+  app.use(express.static(clientDistPath));
+
+  // SPA fallback for all non-API GET requests
+  app.get('*', (req, res, next) => {
+    // Never hijack API or socket.io routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+      return res.status(404).json({ success: false, message: `API endpoint ${req.method} ${req.path} not found` });
+    }
+    if (fs.existsSync(indexHtmlPath)) {
+      return res.sendFile(indexHtmlPath);
+    }
+    next();
+  });
+} else {
+  console.log('[CareerLink Server] client/dist not detected - running in standalone API mode');
+}
 
 // Global Error Handler
 app.use(errorHandler);

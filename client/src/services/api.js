@@ -1,14 +1,26 @@
 import axios from 'axios';
 
-const rawBaseUrl = import.meta.env.VITE_API_URL || '/api';
-const baseURL = rawBaseUrl.endsWith('/api')
-  ? rawBaseUrl
-  : rawBaseUrl.endsWith('/')
-  ? `${rawBaseUrl}api`
-  : `${rawBaseUrl}/api`;
+// Resolve API base URL:
+// - If VITE_API_URL is provided, format and use it
+// - If running in local Vite dev mode without VITE_API_URL, default to http://localhost:5000/api
+// - In production single-service deployment (Render), use relative same-origin /api
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.endsWith('/api')
+      ? envUrl
+      : envUrl.endsWith('/')
+      ? `${envUrl}api`
+      : `${envUrl}/api`;
+  }
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5000/api';
+  }
+  return '/api';
+};
 
 const api = axios.create({
-  baseURL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

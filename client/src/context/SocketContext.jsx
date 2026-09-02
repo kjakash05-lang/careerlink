@@ -18,11 +18,16 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    const socketUrl =
-      import.meta.env.VITE_SOCKET_URL ||
-      (import.meta.env.VITE_API_URL
-        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
-        : '/');
+    let socketUrl = import.meta.env.VITE_SOCKET_URL;
+    if (!socketUrl) {
+      if (import.meta.env.DEV) {
+        socketUrl = 'http://localhost:5000';
+      } else if (typeof window !== 'undefined') {
+        socketUrl = window.location.origin;
+      } else {
+        socketUrl = '/';
+      }
+    }
 
     const effectiveUserId = (user.id || user._id || '').toString();
     const storedToken = token || localStorage.getItem('careerlink_token') || '';
