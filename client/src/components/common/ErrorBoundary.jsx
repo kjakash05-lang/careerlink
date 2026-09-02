@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 class ErrorBoundary extends React.Component {
@@ -40,6 +40,15 @@ class ErrorBoundary extends React.Component {
                 An unexpected interface exception occurred. The error has been safely trapped to prevent application crash.
               </p>
             </div>
+
+            {this.state.error && (
+              <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-rose-500/30 text-left overflow-auto max-h-48 text-[11px] font-mono text-rose-300 space-y-1">
+                <div className="font-bold text-rose-400">{this.state.error.name}: {this.state.error.message}</div>
+                {this.state.errorInfo?.componentStack && (
+                  <pre className="text-[9.5px] text-slate-400 whitespace-pre-wrap overflow-x-auto">{this.state.errorInfo.componentStack}</pre>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button

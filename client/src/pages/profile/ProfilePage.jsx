@@ -26,6 +26,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Activity,
+  Briefcase,
   Image as ImageIcon,
   X,
 } from 'lucide-react';
@@ -94,7 +95,8 @@ const PRESET_BANNERS = [
 ];
 
 const ProfilePage = () => {
-  const { id } = useParams();
+  const { id, identifier } = useParams();
+  const rawId = identifier || id;
   const { user: currentUser, updateProfileState } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
@@ -123,17 +125,21 @@ const ProfilePage = () => {
   const [selectedPresetUrl, setSelectedPresetUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const params = useParams();
-  const rawId = params.id || params.identifier;
+  const avatarInputRef = useRef(null);
+  const coverInputRef = useRef(null);
 
-  const targetUserId = profile?.user?._id || profile?.user;
-  const currentUserId = currentUser?.id || currentUser?._id;
-  const isOwnProfile =
-    Boolean(currentUser && profile && (
-      (currentUserId && targetUserId && currentUserId.toString() === targetUserId.toString()) ||
-      (currentUser.profile?._id && profile._id && currentUser.profile._id.toString() === profile._id.toString()) ||
-      (!rawId || rawId === 'me')
-    ));
+  const targetUserId = (profile?.user?._id || profile?.user || '').toString();
+  const currentUserId = (currentUser?.id || currentUser?._id || '').toString();
+  const currentUserProfileId = (currentUser?.profile?._id || currentUser?.profile || '').toString();
+  const targetProfileId = (profile?._id || '').toString();
+
+  const isOwnProfile = Boolean(
+    currentUser && profile && (
+      (!rawId || rawId === 'me') ||
+      (currentUserId && targetUserId && currentUserId === targetUserId) ||
+      (currentUserProfileId && targetProfileId && currentUserProfileId === targetProfileId)
+    )
+  );
 
   // Fetch Profile & Relationship Status
   useEffect(() => {
@@ -225,7 +231,7 @@ const ProfilePage = () => {
         if (suggRes.status === 'fulfilled' && suggRes.value.success) {
           setSuggestions(suggRes.value.suggestions.slice(0, 4));
         }
-        if (connRes.status === 'fulfilled' && connRes.value.success) {
+        if (connRes.status === 'fulfilled' && connRes.value.success && isOwnProfile) {
           setConnectionsCount(connRes.value.count || 0);
         }
 
@@ -510,13 +516,21 @@ const ProfilePage = () => {
   }
 
   if (error || !profile) {
+    const is401 = error?.toLowerCase().includes('log in') || error?.toLowerCase().includes('authorized');
+    const is500 = error?.toLowerCase().includes('server') || error?.toLowerCase().includes('connect');
     return (
-      <div className="max-w-md mx-auto my-20 p-8 bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/10 text-center shadow-2xl">
-        <h3 className="text-xl font-bold text-white mb-2">Profile Not Found</h3>
-        <p className="text-xs text-slate-400 mb-6">{error || 'This user profile does not exist or has been removed.'}</p>
-        <Link to="/feed" className="pro-btn-primary text-xs py-2.5 px-6">
-          Return to Feed
-        </Link>
+      <div className="max-w-md mx-auto my-20 p-8 bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-white/10 text-center shadow-2xl space-y-3">
+        <h3 className="text-xl font-bold text-white">
+          {is401 ? 'Please Log In' : is500 ? 'Unable to Load Profile' : 'Profile Not Found'}
+        </h3>
+        <p className="text-xs text-slate-300">
+          {error || 'This user profile does not exist or has been removed.'}
+        </p>
+        <div className="pt-2">
+          <Link to="/feed" className="pro-btn-primary text-xs py-2 px-5 inline-flex items-center gap-1.5 shadow-lg shadow-pro-600/30">
+            Return to Feed
+          </Link>
+        </div>
       </div>
     );
   }
@@ -747,6 +761,66 @@ const ProfilePage = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Career Score / Completeness Prompt (Owner Only) */}
           {isOwnProfile && <CareerScoreWidget profile={profile} />}
+
+          {/* About / Summary Section */}
+          <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-pro-400" />
+                <span>About</span>
+              </h3>
+              {isOwnProfile && (
+                <Link to="/profile/edit" className="text-xs font-bold text-pro-400 hover:text-pro-300">
+                  Edit
+                </Link>
+              )}
+            </div>
+            {profile.about?.trim() ? (
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                {profile.about}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No summary provided yet.</p>
+            )}
+          </div>
+
+          {/* Experience Section */}
+          <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-pro-400" />
+                <span>Experience</span>
+              </h3>
+              {isOwnProfile && (
+                <Link to="/profile/edit#experience" className="text-xs font-bold text-pro-400 hover:text-pro-300">
+                  + Add Experience
+                </Link>
+              )}
+            </div>
+
+            {profile.experience && profile.experience.length > 0 ? (
+              <div className="space-y-3">
+                {profile.experience.map((exp, idx) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs">
+                    <h4 className="font-bold text-white text-sm">{exp.title}</h4>
+                    <p className="font-semibold text-slate-300">
+                      {exp.company} {exp.location ? `• ${exp.location}` : ''}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {exp.startDate} – {exp.current ? 'Present' : exp.endDate || 'Present'}
+                    </p>
+                    {exp.description && (
+                      <p className="text-slate-300 text-xs mt-2 leading-relaxed whitespace-pre-line">
+                        {exp.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No experience listed yet.</p>
+            )}
+          </div>
 
           {/* Education Credentials */}
           <div className="pro-card p-6 border border-white/15 shadow-xl backdrop-blur-xl space-y-4">
