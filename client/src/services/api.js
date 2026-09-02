@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+const rawBaseUrl = import.meta.env.VITE_API_URL || '/api';
+const baseURL = rawBaseUrl.endsWith('/api')
+  ? rawBaseUrl
+  : rawBaseUrl.endsWith('/')
+  ? `${rawBaseUrl}api`
+  : `${rawBaseUrl}/api`;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -44,6 +51,7 @@ export const authService = {
 
 export const profileService = {
   getProfile: (id) => api.get(`/profile/${id}`),
+  getPublicProfile: (identifier) => api.get(`/users/public/${identifier}`),
   getMyProfile: () => api.get('/profile/me'),
   updateProfile: (data) => api.put('/profile/me', data),
   addExperience: (data) => api.post('/profile/experience', data),

@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   Activity,
   Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -146,7 +147,11 @@ const ProfilePage = () => {
 
         // If target ID or slug is specified, fetch by ID/slug
         if (rawId && rawId !== 'me' && rawId !== 'undefined' && rawId !== '[object Object]') {
-          res = await profileService.getProfile(rawId);
+          try {
+            res = await profileService.getPublicProfile(rawId);
+          } catch (pubErr) {
+            res = await profileService.getProfile(rawId);
+          }
         } else {
           // Otherwise fetch currently authenticated user's profile
           res = await profileService.getMyProfile();
@@ -156,6 +161,9 @@ const ProfilePage = () => {
 
         if (res && res.success && res.profile) {
           setProfile(res.profile);
+          if (typeof res.profile.connectionsCount === 'number') {
+            setConnectionsCount(res.profile.connectionsCount);
+          }
 
           const profileUid = res.profile.user?._id || res.profile.user;
           const authUid = currentUser?.id || currentUser?._id;
@@ -455,15 +463,32 @@ const ProfilePage = () => {
   };
 
   const handleAcceptConnection = async () => {
-    if (!connectionId) return;
+    const targetUserId = profile?.user?._id || profile?.user;
+    const reqId = connectionId || targetUserId;
+    if (!reqId) return;
     try {
-      const res = await connectionService.acceptRequest(connectionId);
+      const res = await connectionService.acceptRequest(reqId);
       if (res.success) {
         setConnectionStatus('CONNECTED');
+        setConnectionsCount((prev) => prev + 1);
         showToast('Connection request accepted!', 'success');
       }
     } catch (err) {
       showToast(err.message || 'Failed to accept connection', 'error');
+    }
+  };
+
+  const handleIgnoreConnection = async () => {
+    const targetUserId = profile?.user?._id || profile?.user;
+    const reqId = connectionId || targetUserId;
+    if (!reqId) return;
+    try {
+      await connectionService.rejectRequest(reqId);
+      setConnectionStatus('NONE');
+      setConnectionId(null);
+      showToast('Connection invitation ignored', 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to ignore connection', 'error');
     }
   };
 
@@ -642,20 +667,29 @@ const ProfilePage = () => {
                       <span>Pending</span>
                     </button>
                   ) : connectionStatus === 'PENDING_RECEIVED' ? (
-                    <button
-                      onClick={handleAcceptConnection}
-                      className="pro-btn-primary text-xs py-2 px-4 flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Accept Request</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleAcceptConnection}
+                        className="pro-btn-primary text-xs py-2 px-3.5 flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 shadow-md"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Accept</span>
+                      </button>
+                      <button
+                        onClick={handleIgnoreConnection}
+                        className="pro-btn-secondary text-xs py-2 px-3 flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Ignore</span>
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={handleConnect}
                       className="pro-btn-primary text-xs py-2 px-4 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
-                      <span>Connect</span>
+                      <span>+ Connect</span>
                     </button>
                   )}
 

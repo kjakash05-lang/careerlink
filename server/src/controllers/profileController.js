@@ -1,15 +1,16 @@
 const mongoose = require('mongoose');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
+const Connection = require('../models/Connection');
 const Notification = require('../models/Notification');
 const { uploadFile, deleteFile } = require('../utils/cloudinary');
 
 // @desc    Get profile by user ID, profile ID, or public username slug
-// @route   GET /api/profile/:id
+// @route   GET /api/profile/:id or GET /api/users/public/:identifier
 // @access  Public / Private
 exports.getProfile = async (req, res, next) => {
   try {
-    const rawId = req.params.id;
+    const rawId = req.params.identifier || req.params.id;
     if (!rawId || rawId === 'undefined' || rawId === '[object Object]') {
       return res.status(400).json({ success: false, message: 'Invalid profile identifier.' });
     }
@@ -71,7 +72,18 @@ exports.getProfile = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Profile not found.' });
     }
 
-    res.status(200).json({ success: true, profile });
+    const targetUserId = profile.user?._id || profile.user;
+    const connectionsCount = await Connection.countDocuments({
+      $or: [
+        { requester: targetUserId, status: 'accepted' },
+        { recipient: targetUserId, status: 'accepted' },
+      ],
+    });
+
+    const profileObj = profile.toObject ? profile.toObject({ virtuals: true }) : profile;
+    profileObj.connectionsCount = connectionsCount;
+
+    res.status(200).json({ success: true, profile: profileObj, user: profileObj });
   } catch (err) {
     next(err);
   }
@@ -90,7 +102,18 @@ exports.getMyProfile = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Profile not found.' });
     }
 
-    res.status(200).json({ success: true, profile });
+    const currentUserId = req.user.id;
+    const connectionsCount = await Connection.countDocuments({
+      $or: [
+        { requester: currentUserId, status: 'accepted' },
+        { recipient: currentUserId, status: 'accepted' },
+      ],
+    });
+
+    const profileObj = profile.toObject ? profile.toObject({ virtuals: true }) : profile;
+    profileObj.connectionsCount = connectionsCount;
+
+    res.status(200).json({ success: true, profile: profileObj, user: profileObj });
   } catch (err) {
     next(err);
   }

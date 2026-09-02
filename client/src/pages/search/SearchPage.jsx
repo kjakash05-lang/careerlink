@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
   Search,
   Users,
@@ -17,6 +17,7 @@ import {
   Sparkles,
   Loader2,
   Code,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -28,6 +29,7 @@ import PostCard from '../../components/feed/PostCard';
 const SearchPage = () => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'people' | 'companies' | 'jobs' | 'posts'
@@ -56,7 +58,8 @@ const SearchPage = () => {
   }, [query, activeTab]);
 
   // Handle Send Connection Request directly from Search Results
-  const handleConnect = async (targetUserId, targetProfileId) => {
+  const handleConnect = async (e, targetUserId, targetProfileId) => {
+    if (e) e.stopPropagation();
     setActionLoadingId(targetUserId || targetProfileId);
     try {
       await connectionService.sendRequest(targetUserId);
@@ -80,7 +83,8 @@ const SearchPage = () => {
   };
 
   // Handle Accept Connection Request directly from Search Results
-  const handleAccept = async (connectionId, targetUserId) => {
+  const handleAccept = async (e, connectionId, targetUserId) => {
+    if (e) e.stopPropagation();
     setActionLoadingId(targetUserId);
     try {
       await connectionService.acceptRequest(connectionId || targetUserId);
@@ -98,6 +102,30 @@ const SearchPage = () => {
       }));
     } catch (err) {
       showToast(err.message || 'Failed to accept connection', 'error');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Handle Ignore/Reject Connection Request directly from Search Results
+  const handleIgnore = async (e, connectionId, targetUserId) => {
+    if (e) e.stopPropagation();
+    setActionLoadingId(targetUserId);
+    try {
+      await connectionService.rejectRequest(connectionId || targetUserId);
+      showToast('Connection request ignored', 'info');
+      setResults((prev) => ({
+        ...prev,
+        people: prev.people.map((p) => {
+          const uid = p.user?._id || p.user || p._id;
+          if (uid === targetUserId) {
+            return { ...p, connectionStatus: 'NONE' };
+          }
+          return p;
+        }),
+      }));
+    } catch (err) {
+      showToast(err.message || 'Failed to ignore connection', 'error');
     } finally {
       setActionLoadingId(null);
     }
@@ -164,11 +192,19 @@ const SearchPage = () => {
                   return (
                     <div
                       key={p._id}
-                      className="pro-card p-5 border border-white/15 shadow-xl backdrop-blur-xl flex flex-col justify-between gap-4 hover:border-pro-400/40 transition-all rounded-2xl"
+                      onClick={(e) => {
+                        if (e.target.closest('button') || e.target.closest('a')) return;
+                        navigate(profileUrl);
+                      }}
+                      className="pro-card p-5 border border-white/15 shadow-xl backdrop-blur-xl flex flex-col justify-between gap-4 hover:border-pro-400/40 transition-all rounded-2xl cursor-pointer"
                     >
                       <div className="flex items-start gap-3.5">
                         {/* Avatar: Photo or Initials Monogram */}
-                        <Link to={profileUrl} className="shrink-0 group">
+                        <Link
+                          to={profileUrl}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 group"
+                        >
                           <Avatar
                             src={p.avatar}
                             alt={p.fullName}
@@ -180,6 +216,7 @@ const SearchPage = () => {
                         <div className="overflow-hidden flex-1 min-w-0">
                           <Link
                             to={profileUrl}
+                            onClick={(e) => e.stopPropagation()}
                             className="font-extrabold text-sm text-white hover:text-pro-300 truncate block"
                           >
                             {p.fullName}
@@ -228,6 +265,7 @@ const SearchPage = () => {
                       <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
                         <Link
                           to={profileUrl}
+                          onClick={(e) => e.stopPropagation()}
                           className="pro-btn-secondary text-xs py-1.5 px-3"
                         >
                           View Profile
@@ -246,6 +284,7 @@ const SearchPage = () => {
                             </span>
                             <Link
                               to={`/messages?userId=${targetUserId}`}
+                              onClick={(e) => e.stopPropagation()}
                               className="pro-btn-secondary text-xs py-1.5 px-2.5 flex items-center gap-1"
                             >
                               <MessageSquare className="w-3.5 h-3.5 text-pro-400" />
@@ -255,27 +294,38 @@ const SearchPage = () => {
                         ) : p.connectionStatus === 'PENDING_SENT' ? (
                           <button
                             disabled
+                            onClick={(e) => e.stopPropagation()}
                             className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 cursor-default"
                           >
                             <Clock className="w-3.5 h-3.5" />
                             <span>Pending</span>
                           </button>
                         ) : p.connectionStatus === 'PENDING_RECEIVED' ? (
-                          <button
-                            onClick={() => handleAccept(p.connectionId, targetUserId)}
-                            disabled={isActionLoading}
-                            className="pro-btn-primary text-xs py-1.5 px-3.5 flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600"
-                          >
-                            {isActionLoading ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Check className="w-3.5 h-3.5" />
-                            )}
-                            <span>Accept</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={(e) => handleAccept(e, p.connectionId, targetUserId)}
+                              disabled={isActionLoading}
+                              className="pro-btn-primary text-xs py-1.5 px-3 flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-teal-600"
+                            >
+                              {isActionLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                              <span>Accept</span>
+                            </button>
+                            <button
+                              onClick={(e) => handleIgnore(e, p.connectionId, targetUserId)}
+                              disabled={isActionLoading}
+                              className="pro-btn-secondary text-xs py-1.5 px-2.5 flex items-center gap-1 text-slate-300 hover:text-white"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Ignore</span>
+                            </button>
+                          </div>
                         ) : (
                           <button
-                            onClick={() => handleConnect(targetUserId, p._id)}
+                            onClick={(e) => handleConnect(e, targetUserId, p._id)}
                             disabled={isActionLoading}
                             className="pro-btn-primary text-xs py-1.5 px-3.5 flex items-center gap-1.5 shadow-lg shadow-pro-600/30"
                           >
@@ -284,7 +334,7 @@ const SearchPage = () => {
                             ) : (
                               <UserPlus className="w-3.5 h-3.5" />
                             )}
-                            <span>Connect</span>
+                            <span>+ Connect</span>
                           </button>
                         )}
                       </div>
