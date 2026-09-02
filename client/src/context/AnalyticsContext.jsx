@@ -161,6 +161,7 @@ export const AnalyticsProvider = ({ children }) => {
         completionPercentage,
         isLoading,
         recordEvent,
+        trackEvent: recordEvent,
         dismissOnboarding,
         refreshAnalytics: fetchAnalytics,
       }}

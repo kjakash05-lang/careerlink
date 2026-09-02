@@ -159,8 +159,45 @@ export const uploadService = {
 };
 
 export const analyticsService = {
-  getMyAnalytics: () => api.get('/analytics/me'),
-  recordEvent: (data) => api.post('/analytics/event', data),
+  getMyAnalytics: async () => {
+    try {
+      const res = await api.get('/analytics/me');
+      return res?.data || res;
+    } catch (err) {
+      console.warn('[Analytics] getMyAnalytics non-fatal warning:', err.message);
+      return { success: false, analytics: null };
+    }
+  },
+  recordEvent: async (data) => {
+    try {
+      const res = await api.post('/analytics/event', data);
+      return res?.data || res;
+    } catch (err) {
+      console.warn('[Analytics] recordEvent non-fatal warning:', err.message);
+      return { success: false };
+    }
+  },
+  trackEvent: async (eventNameOrObj, maybeData = {}) => {
+    try {
+      let eventType = 'CUSTOM';
+      let metadata = {};
+
+      if (typeof eventNameOrObj === 'string') {
+        eventType = eventNameOrObj;
+        metadata = maybeData || {};
+      } else if (eventNameOrObj && typeof eventNameOrObj === 'object') {
+        eventType = eventNameOrObj.eventType || eventNameOrObj.type || 'CUSTOM';
+        metadata = eventNameOrObj.metadata || eventNameOrObj.data || eventNameOrObj;
+      }
+
+      const res = await api.post('/analytics/event', { eventType, metadata });
+      return res?.data || res;
+    } catch (err) {
+      // Non-blocking telemetry warning - never throw or crash caller
+      console.warn('[Analytics] Telemetry event non-fatal warning:', err.message);
+      return { success: false };
+    }
+  },
 };
 
 export default api;

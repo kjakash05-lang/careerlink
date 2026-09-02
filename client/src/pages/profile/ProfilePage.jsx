@@ -186,13 +186,17 @@ const ProfilePage = () => {
               console.warn('Could not fetch relationship status:', statusErr);
             }
 
-            // Track visitor profile view
-            analyticsService
-              .trackEvent({
-                type: 'PROFILE_VIEW',
-                metadata: { targetUserId: profileUid },
-              })
-              .catch(() => {});
+            // Track visitor profile view safely (target user's ID)
+            try {
+              if (analyticsService && typeof analyticsService.trackEvent === 'function') {
+                analyticsService.trackEvent('PROFILE_VIEW', {
+                  profileId: profileUid?.toString(),
+                  targetUserId: profileUid?.toString(),
+                });
+              }
+            } catch (trackErr) {
+              console.warn('[ProfilePage] Non-fatal analytics event warning:', trackErr);
+            }
           } else {
             setConnectionStatus('SELF');
           }
@@ -204,7 +208,17 @@ const ProfilePage = () => {
         }
       } catch (err) {
         if (!isMounted) return;
-        setError(err.message || 'Profile not found');
+        console.error('[ProfilePage] Profile load error:', err);
+        const errMsg = err?.message || '';
+        if (errMsg.includes('404') || errMsg.toLowerCase().includes('not found')) {
+          setError('Profile not found');
+        } else if (errMsg.includes('401') || errMsg.toLowerCase().includes('authorized')) {
+          setError('Please log in again.');
+        } else if (errMsg.toLowerCase().includes('network') || errMsg.toLowerCase().includes('connect')) {
+          setError('Unable to connect to CareerLink.');
+        } else {
+          setError('Unable to load profile. Please try again.');
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false);

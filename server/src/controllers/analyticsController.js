@@ -192,6 +192,7 @@ exports.recordEvent = async (req, res, next) => {
 
     switch (eventType) {
       case 'POST_CREATED':
+      case 'POST_CREATE':
         profile.analytics.postsCount = (profile.analytics.postsCount || 0) + 1;
         profile.analytics.postReach = (profile.analytics.postReach || 0) + 50;
         profile.analytics.profileImpressions = (profile.analytics.profileImpressions || 0) + 25;
@@ -199,11 +200,13 @@ exports.recordEvent = async (req, res, next) => {
         break;
 
       case 'JOB_APPLIED':
+      case 'JOB_APPLICATION':
         profile.analytics.applicationsCount = (profile.analytics.applicationsCount || 0) + 1;
         profile.analytics.recruiterInterest = (profile.analytics.recruiterInterest || 0) + 1;
         break;
 
       case 'JOB_SAVED':
+      case 'JOB_VIEW':
         profile.analytics.savedJobsCount = (profile.analytics.savedJobsCount || 0) + 1;
         break;
 
@@ -211,9 +214,44 @@ exports.recordEvent = async (req, res, next) => {
         profile.analytics.followersCount = (profile.analytics.followersCount || 0) + 1;
         break;
 
+      case 'PROFILE_VIEW':
       case 'PROFILE_VIEWED':
-        profile.analytics.profileViews = (profile.analytics.profileViews || 0) + 1;
-        profile.analytics.profileImpressions = (profile.analytics.profileImpressions || 0) + 3;
+      case 'PROFILE_CLICK': {
+        const targetId = metadata?.targetUserId || metadata?.profileId;
+        if (targetId && targetId.toString() !== req.user.id.toString()) {
+          // Increment the target user's live profile views and impressions
+          try {
+            const targetProf = await Profile.findOne({
+              $or: [
+                { user: targetId },
+                { _id: targetId },
+              ],
+            });
+            if (targetProf) {
+              if (!targetProf.analytics) targetProf.analytics = {};
+              targetProf.analytics.profileViews = (targetProf.analytics.profileViews || 0) + 1;
+              targetProf.analytics.profileImpressions = (targetProf.analytics.profileImpressions || 0) + 1;
+              await targetProf.save();
+            }
+          } catch (tErr) {
+            console.warn('[Analytics] Target profile view increment warning:', tErr.message);
+          }
+        } else {
+          profile.analytics.profileViews = (profile.analytics.profileViews || 0) + 1;
+        }
+        break;
+      }
+
+      case 'CONNECTION_REQUEST':
+      case 'CONNECTION_ACCEPTED':
+        profile.analytics.connectionsCount = (profile.analytics.connectionsCount || 0) + 1;
+        break;
+
+      case 'POST_LIKE':
+      case 'POST_COMMENT':
+      case 'POST_REPOST':
+      case 'POST_VIEW':
+        profile.analytics.postReach = (profile.analytics.postReach || 0) + 5;
         break;
 
       case 'DISMISS_ONBOARDING':
